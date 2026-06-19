@@ -28,22 +28,6 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173). The API runs at [http://localhost:4000](http://localhost:4000); `GET /health` is its health check.
 
-## Production Deployment
-
-Deploy to Vercel with a single command. Full setup included:
-
-- **Quick Start**: See [DEPLOY_QUICK_START.md](./DEPLOY_QUICK_START.md) (5 minutes)
-- **Detailed Guide**: See [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)
-- **Setup Summary**: See [DEPLOYMENT_SETUP_SUMMARY.md](./DEPLOYMENT_SETUP_SUMMARY.md)
-
-### Quick Deploy
-```powershell
-npm install -g vercel
-vercel --prod
-```
-
-Then add environment variables in Vercel Dashboard and redeploy. See guides above for details.
-
 For local-only defaults, the environment files are optional. Change both JWT secrets before exposing the app outside a development machine.
 
 ## Demo accounts

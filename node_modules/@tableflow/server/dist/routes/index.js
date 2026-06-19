@@ -1,0 +1,47 @@
+import { Router } from 'express';
+import { login, logout, me, refreshToken } from '../controllers/auth.js';
+import { authenticate, allow } from '../middleware/auth.js';
+import { crud } from '../controllers/crud.js';
+import { Category, MenuItem } from '../models/Catalog.js';
+import { Branch, Customer, Expense, Purchase, Setting, Supplier, Table } from '../models/Operations.js';
+import { InventoryItem, Recipe, StockMovement } from '../models/Inventory.js';
+import { Order } from '../models/Order.js';
+import { User } from '../models/User.js';
+import { createOrder, payOrder, refundOrder, updateStatus } from '../controllers/orders.js';
+import { accounting, dashboard } from '../controllers/reports.js';
+import { asyncHandler, AppError } from '../utils/errors.js';
+export const api = Router();
+api.post('/auth/login', login);
+api.post('/auth/refresh', refreshToken);
+api.get('/auth/me', authenticate, me);
+api.post('/auth/logout', authenticate, logout);
+api.use(authenticate);
+const mount = (path, model, populate = '', writeRoles = ['owner', 'manager']) => { const c = crud(model, populate); api.get(path, c.list); api.get(`${path}/:id`, c.get); api.post(path, allow(...writeRoles), c.create); api.patch(`${path}/:id`, allow(...writeRoles), c.update); api.delete(`${path}/:id`, allow('owner', 'manager'), c.remove); };
+mount('/categories', Category);
+mount('/menu-items', MenuItem, 'category');
+mount('/customers', Customer, '', ['owner', 'manager', 'cashier', 'waiter']);
+mount('/suppliers', Supplier);
+mount('/expenses', Expense, '', ['owner', 'manager', 'accountant']);
+mount('/purchases', Purchase, 'supplier items.inventoryItem', ['owner', 'manager', 'accountant']);
+mount('/inventory', InventoryItem, 'supplier');
+mount('/recipes', Recipe, 'menuItem ingredients.item');
+mount('/tables', Table, 'waiter branch', ['owner', 'manager', 'cashier', 'waiter']);
+mount('/branches', Branch);
+mount('/settings', Setting, '', ['owner', 'manager']);
+mount('/staff', User, 'branch', ['owner', 'manager']);
+mount('/stock-movements', StockMovement, 'item createdBy');
+const orders = crud(Order, 'table customer staff items.menuItem');
+api.get('/orders', orders.list);
+api.get('/orders/:id', orders.get);
+api.post('/orders', allow('owner', 'manager', 'cashier', 'waiter'), createOrder);
+api.patch('/orders/:id', allow('owner', 'manager', 'cashier', 'waiter'), orders.update);
+api.post('/orders/:id/status', allow('owner', 'manager', 'cashier', 'waiter', 'kitchen'), updateStatus);
+api.post('/orders/:id/pay', allow('owner', 'manager', 'cashier'), payOrder);
+api.post('/orders/:id/refund', allow('owner', 'manager'), refundOrder);
+api.post('/inventory/:id/adjust', allow('owner', 'manager'), asyncHandler(async (req, res) => { const item = await InventoryItem.findById(req.params.id); if (!item)
+    throw new AppError(404, 'Inventory item not found'); const before = item.currentStock; item.currentStock += Number(req.body.quantity); await item.save(); const movement = await StockMovement.create({ item: item.id, type: req.body.type || 'adjustment', quantity: Number(req.body.quantity), before, after: item.currentStock, reason: req.body.reason, createdBy: req.user.id }); if (item.currentStock <= item.minimumStock)
+    req.app.get('io').emit('inventory:lowStock', item); res.json({ data: item, movement }); }));
+api.get('/dashboard', dashboard);
+api.get('/reports/accounting', allow('owner', 'manager', 'accountant', 'viewer'), accounting);
+api.get('/reports/export/orders', asyncHandler(async (req, res) => { const rows = await Order.find().sort('-createdAt').lean(); const csv = ['Order,Type,Status,Total,Date', ...rows.map((o) => [o.orderNumber, o.type, o.status, o.total, o.createdAt.toISOString()].join(','))].join('\n'); res.type('text/csv').attachment('orders.csv').send(csv); }));
+//# sourceMappingURL=index.js.map
