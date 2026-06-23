@@ -13,7 +13,7 @@ export default function Login() {
 
   return <div className="grid min-h-screen bg-[#0b0b0d] text-zinc-100 lg:grid-cols-[1.05fr_.95fr]">
     <section className="hidden border-r border-zinc-800 bg-[#171719] p-10 lg:flex lg:flex-col lg:justify-between">
-      <div className="flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-zinc-100 text-zinc-950"><Zap size={22}/></span><div><div className="text-xl font-extrabold text-white">RestaurantOS</div><div className="text-sm text-zinc-400">SparkPair product</div></div></div>
+      <div className="flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-zinc-100 text-zinc-950"><Zap size={22}/></span><div><div className="text-xl font-extrabold text-white">RestaurantOS</div><div className="text-sm text-zinc-400">Nexus Blend Studio</div></div></div>
       <div className="max-w-xl">
         <h1 className="text-5xl font-black leading-tight text-white">Run service from one calm, fast workspace.</h1>
         <p className="mt-5 text-lg leading-relaxed text-zinc-400">Point of sale, orders, kitchen tickets, inventory, and reports share one dark operating surface.</p>

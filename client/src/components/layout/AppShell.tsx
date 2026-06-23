@@ -24,7 +24,7 @@ export function AppShell() {
           <span className="grid h-12 w-12 place-items-center rounded-2xl bg-zinc-100 text-zinc-950"><Zap size={22}/></span>
           <div>
             <div className="text-lg font-extrabold text-white">RestaurantOS</div>
-            <div className="text-sm text-zinc-400">SparkPair product</div>
+            <div className="text-sm text-zinc-400">Nexus Blend Studio</div>
           </div>
         </div>
         <button className="rounded-xl p-2 hover:bg-zinc-900 lg:hidden" onClick={()=>setOpen(false)}><X/></button>
@@ -57,7 +57,7 @@ export function AppShell() {
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-zinc-800 text-zinc-200"><CurrentIcon size={22}/></div>
           <div className="min-w-0">
             <h1 className="truncate text-lg font-extrabold capitalize text-white">{title}</h1>
-            <p className="hidden truncate text-sm text-zinc-400 sm:block">RestaurantOS by SparkPair - sparkpair.dev</p>
+            <p className="hidden truncate text-sm text-zinc-400 sm:block">RestaurantOS by Nexus Blend Studio - nexusblendstudio.online</p>
           </div>
         </div>
 

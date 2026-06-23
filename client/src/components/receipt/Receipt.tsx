@@ -9,7 +9,7 @@ export function Receipt({order}:{order:Order}) {
     </div>
     <div className="space-y-2">{order.items.map((i:any)=><div key={i._id||i.menuItem} className="flex justify-between gap-2"><span>{i.quantity} x {i.name}{i.modifiers?.length?<small className="block">{i.modifiers.map((m:any)=>m.label).join(', ')}</small>:null}</span><span>{Math.round(i.lineTotal||i.unitPrice*i.quantity).toLocaleString()}</span></div>)}</div>
     <div className="my-3 border-y border-dashed py-2"><Row l="Subtotal" v={order.subtotal}/><Row l="Discount" v={-order.discount}/><Row l="Tax" v={order.tax}/><Row l="Service" v={order.serviceCharge}/><div className="mt-1 flex justify-between text-sm font-bold"><span>TOTAL</span><span>Rs {order.total.toLocaleString()}</span></div></div>
-    <div className="text-center">Thank you for dining with us!<br/>Powered by RestaurantOS</div>
+    <div className="text-center">Thank you for dining with us!<br/>Made by Nexus Blend Studio</div>
   </div>;
 }
 
