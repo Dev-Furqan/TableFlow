@@ -31,7 +31,7 @@ export function Badge({children,tone}:{children:ReactNode;tone?:string}) {
 
 export function Modal({open,onClose,title,children,className='max-w-lg'}:{open:boolean;onClose:()=>void;title:string;children:ReactNode;className?:string}) {
   if(!open)return null;
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={onClose}><div className={`max-h-[90vh] w-full overflow-auto rounded-2xl border border-zinc-800 bg-[#171719] text-zinc-100 shadow-2xl ${className}`} onMouseDown={e=>e.stopPropagation()}><div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-800 bg-[#171719]/95 px-5 py-4 backdrop-blur"><h2 className="text-lg font-bold">{title}</h2><button onClick={onClose} className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-900 hover:text-white"><X size={20}/></button></div>{children}</div></div>;
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={onClose}><div className={`max-h-[90vh] w-full overflow-auto rounded-2xl border border-zinc-800 bg-[#171719] text-zinc-100 shadow-2xl ${className}`} onMouseDown={e=>e.stopPropagation()}>{title&&<div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-800 bg-[#171719]/95 px-5 py-4 backdrop-blur"><h2 className="text-lg font-bold">{title}</h2><button onClick={onClose} className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-900 hover:text-white"><X size={20}/></button></div>}{children}</div></div>;
 }
 
 export function Empty({title='Nothing here yet',text='New records will appear here.'}:{title?:string;text?:string}) {

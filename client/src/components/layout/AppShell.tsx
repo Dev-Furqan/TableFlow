@@ -1,10 +1,12 @@
 import {NavLink,Outlet,useLocation} from 'react-router-dom';
-import {LayoutDashboard,ShoppingCart,ClipboardList,Armchair,ChefHat,UtensilsCrossed,Boxes,BookOpen,Users,Truck,PackageCheck,Receipt,Landmark,BarChart3,UserCog,Settings,LogOut,Menu,X,Bell,Search,CalendarDays,Moon,PanelLeft,Zap} from 'lucide-react';
+import {LayoutDashboard,ShoppingCart,ClipboardList,Armchair,ChefHat,UtensilsCrossed,Boxes,BookOpen,Users,Truck,PackageCheck,Receipt,Landmark,BarChart3,UserCog,Settings,LogOut,Menu,X,Search,CalendarDays,Moon,PanelLeft,Zap} from 'lucide-react';
 import {useMemo,useState} from 'react';
 import {useAuth} from '../../store/auth';
+import {NotificationBell} from '../notifications/NotificationBell';
+import {OrderNotifications} from '../notifications/OrderNotifications';
 
 const items=[['Dashboard','/dashboard',LayoutDashboard],['Point of Sale','/pos',ShoppingCart],['Orders','/orders',ClipboardList],['Tables','/tables',Armchair],['Kitchen Display','/kds',ChefHat],['Menu','/menu',UtensilsCrossed],['Inventory','/inventory',Boxes],['Recipes','/recipes',BookOpen],['Customers','/customers',Users],['Suppliers','/suppliers',Truck],['Purchases','/purchases',PackageCheck],['Expenses','/expenses',Receipt],['Accounting','/accounting',Landmark],['Reports','/reports',BarChart3],['Staff','/staff',UserCog],['Settings','/settings',Settings]] as const;
-const restricted:any={kitchen:['/kds'],cashier:['/dashboard','/pos','/orders','/tables','/customers'],waiter:['/dashboard','/pos','/orders','/tables','/customers'],accountant:['/dashboard','/purchases','/expenses','/accounting','/reports'],viewer:['/dashboard','/orders','/reports']};
+const restricted:any={kitchen:['/kds'],rider:['/dashboard','/orders'],cashier:['/dashboard','/pos','/orders','/tables','/customers'],waiter:['/dashboard','/pos','/orders','/tables','/customers'],accountant:['/dashboard','/purchases','/expenses','/accounting','/reports'],viewer:['/dashboard','/orders','/reports']};
 
 export function AppShell() {
   const [open,setOpen]=useState(false);
@@ -18,6 +20,7 @@ export function AppShell() {
   const initials=user?.name?.split(' ').map(x=>x[0]).slice(0,2).join('')||'A';
 
   return <div className="min-h-screen bg-[#0b0b0d] text-zinc-100">
+    <OrderNotifications/>
     <aside className={`fixed inset-y-0 left-0 z-40 flex w-80 flex-col border-r border-zinc-800 bg-[#171719] text-zinc-400 transition-transform lg:translate-x-0 ${open?'translate-x-0':'-translate-x-full'}`}>
       <div className="flex h-24 items-center justify-between border-b border-zinc-800 px-5">
         <div className="flex items-center gap-3">
@@ -64,7 +67,7 @@ export function AppShell() {
         <div className="flex items-center gap-2">
           <button className="hidden items-center gap-2 rounded-2xl border border-zinc-800 px-4 py-3 text-sm font-bold text-white transition hover:bg-zinc-900 md:inline-flex"><Search size={17}/>Search<span className="rounded-lg bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">Ctrl</span><span className="rounded-lg bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">K</span></button>
           <button className="hidden items-center gap-2 rounded-2xl border border-zinc-800 px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-zinc-900 sm:inline-flex"><CalendarDays size={17}/>{today}</button>
-          <button className="relative rounded-2xl border border-zinc-800 p-3 text-zinc-300 hover:bg-zinc-900"><Bell size={18}/><i className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-zinc-100 text-[10px] font-black text-zinc-950">5</i></button>
+          <NotificationBell/>
           <button className="rounded-2xl border border-zinc-800 p-3 text-zinc-300 hover:bg-zinc-900"><Moon size={18}/></button>
         </div>
       </header>
