@@ -13,6 +13,7 @@ const money=(n:number)=>`Rs ${Math.round(n||0).toLocaleString()}`;
 const paymentRates:Record<PaymentMethod,number>={cash:16,card:5,transfer:16,credit:16};
 const defaultCategoryNames=['Burgers','Pizza','Drinks','Shawarma','Biryani','Desserts','Sides'];
 const closedStatuses=['completed','cancelled','refunded'];
+const tableBillStatuses=['pending','sent-to-kitchen','preparing','ready','served'];
 const lineTotal=(i:any)=>((i.unitPrice||0)+(i.modifiers||[]).reduce((a:number,m:any)=>a+(m.priceAdjustment||0),0))*(i.quantity||1);
 
 export default function POS() {
@@ -41,7 +42,7 @@ export default function POS() {
   const {data:categories=[]}=useQuery({queryKey:['categories'],queryFn:()=>api.get('/categories?limit=100').then(r=>r.data.data)});
   const {data:tables=[]}=useQuery({queryKey:['tables'],queryFn:()=>api.get('/tables?limit=100').then(r=>r.data.data)});
   const {data:staff=[]}=useQuery({queryKey:['staff-riders'],queryFn:()=>api.get('/staff?limit=100').then(r=>r.data.data)});
-  const {data:openOrders=[]}=useQuery({queryKey:['open-dine-in-orders'],queryFn:()=>api.get('/orders',{params:{type:'dine-in',limit:100}}).then(r=>r.data.data.filter((o:Order)=>!closedStatuses.includes(o.status)))});
+  const {data:openOrders=[]}=useQuery({queryKey:['open-dine-in-orders'],queryFn:()=>api.get('/orders',{params:{type:'dine-in',limit:100}}).then(r=>r.data.data.filter((o:Order)=>tableBillStatuses.includes(o.status)))});
   const {data:promos=[]}=useQuery({queryKey:['promos'],queryFn:()=>api.get('/promos?limit=100').then(r=>r.data.data).catch(()=>[])});
   const riders=staff.filter((u:any)=>u.role==='rider'&&u.status!=='inactive');
   const activeTableOrder=openOrders.find((o:Order)=>String(o.table?._id||o.table)===String(cart.table?._id));
