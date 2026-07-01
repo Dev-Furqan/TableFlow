@@ -231,7 +231,7 @@ export default function POS() {
       </div>
     </section>
 
-    <CartPanel {...{cart,tables,selectTable,activeTableOrder,existingItems,newSubtotal,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,total,taxRate,paymentMethod,setPaymentMethod,setPayOpen,save,placeOrder,saving,promo,setPromo,applyPromo}}/>
+    <CartPanel {...{cart,tables,selectTable,activeTableOrder,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,total,taxRate,paymentMethod,setPaymentMethod,setPayOpen,save,placeOrder,saving,promo,setPromo,applyPromo}}/>
 
     <div className="fixed inset-x-3 bottom-3 z-20 xl:hidden"><Button disabled={!cart.items.length&&!activeTableOrder} className="w-full shadow-xl" onClick={()=>setPayOpen(true)}><span className="flex w-full justify-between"><span>Checkout</span><span>{money(total)}</span></span></Button></div>
 
@@ -265,7 +265,7 @@ function ItemModal({pick,mods,setMods,lineNote,setLineNote,cart,setPick}:any) {
   </div>;
 }
 
-function CartPanel({cart,tables,selectTable,activeTableOrder,existingItems,newSubtotal,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,total,taxRate,paymentMethod,setPaymentMethod,setPayOpen,save,placeOrder,saving,promo,setPromo,applyPromo}:any) {
+function CartPanel({cart,tables,selectTable,activeTableOrder,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,total,taxRate,paymentMethod,setPaymentMethod,setPayOpen,save,placeOrder,saving,promo,setPromo,applyPromo}:any) {
   const taxLabel=paymentMethod[0].toUpperCase()+paymentMethod.slice(1);
   const orderLabel=cart.orderType==='foodpanda'?'Foodpanda':cart.orderType.replace('-',' ');
   const orderContext=cart.orderType==='dine-in'?cart.table?.name||'Select table first':needsRider?`${deliveryAddress||'Address required'} - ${selectedRider?.name||'Rider required'}`:needsAddress?deliveryAddress||'Address required':'Counter order';
@@ -280,11 +280,7 @@ function CartPanel({cart,tables,selectTable,activeTableOrder,existingItems,newSu
       {cart.orderType==='dine-in'&&<select value={cart.table?._id||''} onChange={e=>{const table=tables.find((t:any)=>t._id===e.target.value);if(table)selectTable(table);}} className="mt-3 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none"><option value="">Select table first</option>{tables.map((t:any)=><option key={t._id} value={t._id}>{t.name} - {t.status}</option>)}</select>}
     </div>
     <div className="flex-1 overflow-y-auto p-4">
-      {activeTableOrder&&<div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
-        <div className="flex items-center justify-between gap-3"><div><div className="text-sm font-black text-amber-200">Open table bill</div><div className="mt-1 text-xs text-amber-100/70">{activeTableOrder.orderNumber} - {activeTableOrder.status.replaceAll('-',' ')}</div></div><div className="font-black text-white">{money(existingItems.reduce((s:number,i:any)=>s+lineTotal(i),0))}</div></div>
-        <div className="mt-3 space-y-2">{existingItems.map((i:any)=><div key={i._id||i.menuItem} className="flex justify-between gap-3 text-sm text-zinc-200"><span className="truncate">{i.quantity} x {i.name}</span><span className="shrink-0 font-bold">{money(lineTotal(i))}</span></div>)}</div>
-      </div>}
-      {cart.items.length?<div className="space-y-3">{activeTableOrder&&<div className="px-1 text-xs font-black uppercase tracking-wide text-zinc-500">New additions</div>}{cart.items.map((i:any)=><div key={i.id} className="rounded-2xl border border-zinc-800 bg-[#171719] p-4">
+      {cart.items.length?<div className="space-y-3">{cart.items.map((i:any)=><div key={i.id} className="rounded-2xl border border-zinc-800 bg-[#171719] p-4">
         <div className="flex items-start justify-between gap-4"><div><div className="font-black text-white">{i.name}</div><div className="mt-1 font-bold text-white">{money((i.unitPrice+i.modifiers.reduce((a:number,m:any)=>a+m.priceAdjustment,0))*i.quantity)}</div>{i.modifiers.length>0&&<div className="mt-1 text-xs text-zinc-500">{i.modifiers.map((m:any)=>m.label).join(', ')}</div>}{i.notes&&<div className="mt-1 text-xs text-amber-300">{i.notes}</div>}</div><div className="flex items-center gap-3"><button onClick={()=>cart.quantity(i.id,-1)} className="grid h-8 w-8 place-items-center rounded-full border border-zinc-700 text-zinc-300"><Minus size={14}/></button><span className="w-5 text-center font-black text-white">{i.quantity}</span><button onClick={()=>cart.quantity(i.id,1)} className="grid h-8 w-8 place-items-center rounded-full border border-zinc-700 text-zinc-300"><Plus size={14}/></button><button onClick={()=>cart.remove(i.id)} className="text-rose-400"><Trash2 size={16}/></button></div></div>
       </div>)}</div>:!activeTableOrder&&<Empty title={cart.orderType==='dine-in'?'Select a table and add items':'Add items to start'} text=""/>}
     </div>
@@ -294,8 +290,6 @@ function CartPanel({cart,tables,selectTable,activeTableOrder,existingItems,newSu
         <label className="relative flex-1"><input value={promo} onChange={e=>setPromo(e.target.value)} placeholder="Promo code" className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-3 text-zinc-100 outline-none placeholder:text-zinc-500"/><button onClick={applyPromo} className="absolute right-2 top-2 rounded-xl bg-zinc-100 px-4 py-1.5 font-bold text-zinc-950">Apply</button></label>
       </div>
       <div className="space-y-3 border-t border-zinc-800 pt-4 text-sm">
-        {activeTableOrder&&<div className="flex justify-between text-zinc-400"><span>Existing table bill</span><span className="font-bold text-white">{money(subtotal-newSubtotal)}</span></div>}
-        {activeTableOrder&&newSubtotal>0&&<div className="flex justify-between text-zinc-400"><span>New additions</span><span className="font-bold text-white">{money(newSubtotal)}</span></div>}
         <div className="flex justify-between text-zinc-400"><span>Subtotal</span><span className="font-bold text-white">{money(subtotal)}</span></div>
         {discount>0&&<div className="flex justify-between text-zinc-400"><span>Discount</span><span className="font-bold text-white">-{money(discount)}</span></div>}
         <div className="flex justify-between text-zinc-400"><span>Tax ({taxRate}% {taxLabel})</span><span className="font-bold text-white">{money(tax)}</span></div>
