@@ -165,6 +165,7 @@ export default function POS() {
       resetOrderFields();
       qc.invalidateQueries({queryKey:['open-dine-in-orders']});
       qc.invalidateQueries({queryKey:['orders']});
+      qc.invalidateQueries({queryKey:['tables']});
       toast.push('Payment completed');
     }catch(e){toast.push(messageOf(e),'error');}
     finally{setSaving(false);}
