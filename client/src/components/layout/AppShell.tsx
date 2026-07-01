@@ -5,8 +5,8 @@ import {useAuth} from '../../store/auth';
 import {NotificationBell} from '../notifications/NotificationBell';
 import {OrderNotifications} from '../notifications/OrderNotifications';
 
-const items=[['Dashboard','/dashboard',LayoutDashboard],['Point of Sale','/pos',ShoppingCart],['Orders','/orders',ClipboardList],['Tables','/tables',Armchair],['Kitchen Display','/kds',ChefHat],['Menu','/menu',UtensilsCrossed],['Inventory','/inventory',Boxes],['Recipes','/recipes',BookOpen],['Customers','/customers',Users],['Suppliers','/suppliers',Truck],['Purchases','/purchases',PackageCheck],['Expenses','/expenses',Receipt],['Accounting','/accounting',Landmark],['Reports','/reports',BarChart3],['Staff','/staff',UserCog],['Settings','/settings',Settings]] as const;
-const restricted:any={kitchen:['/kds'],rider:['/dashboard','/orders'],cashier:['/dashboard','/pos','/orders','/tables','/customers'],waiter:['/dashboard','/pos','/orders','/tables','/customers'],accountant:['/dashboard','/purchases','/expenses','/accounting','/reports'],viewer:['/dashboard','/orders','/reports']};
+const items=[['Dashboard','/dashboard',LayoutDashboard],['Point of Sale','/pos',ShoppingCart],['Orders','/orders',ClipboardList],['Tables','/tables',Armchair],['Riders','/riders',Truck],['Kitchen Display','/kds',ChefHat],['Menu','/menu',UtensilsCrossed],['Inventory','/inventory',Boxes],['Recipes','/recipes',BookOpen],['Customers','/customers',Users],['Suppliers','/suppliers',Truck],['Purchases','/purchases',PackageCheck],['Expenses','/expenses',Receipt],['Accounting','/accounting',Landmark],['Reports','/reports',BarChart3],['Staff','/staff',UserCog],['Settings','/settings',Settings]] as const;
+const restricted:any={kitchen:['/kds'],rider:['/dashboard','/orders'],cashier:['/dashboard','/pos','/orders','/tables','/riders','/customers'],waiter:['/dashboard','/pos','/orders','/tables','/riders','/customers'],accountant:['/dashboard','/purchases','/expenses','/accounting','/reports'],viewer:['/dashboard','/orders','/reports']};
 
 export function AppShell() {
   const [open,setOpen]=useState(false);

@@ -1,0 +1,3 @@
+/api/* https://tableflowserver-production-bf0b.up.railway.app/api/:splat 200
+/socket.io/* https://tableflowserver-production-bf0b.up.railway.app/socket.io/:splat 200
+/* /index.html 200

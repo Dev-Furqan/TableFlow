@@ -1,20 +1,23 @@
 import {useMemo,useState} from 'react';
-import {useQuery} from '@tanstack/react-query';
+import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {BadgePercent,Banknote,Bike,ChevronDown,ChevronRight,CreditCard,MapPin,Minus,PauseCircle,Plus,ReceiptText,Search,ShoppingBag,Split,Trash2,Truck,Users,Utensils,WalletCards,X} from 'lucide-react';
 import {api,messageOf} from '../services/api';
 import {useCart} from '../store/cart';
 import {useToast} from '../store/toast';
 import {Button,Empty,Modal} from '../components/ui';
 import type {MenuItem,Order} from '../types';
-import {Receipt} from '../components/receipt/Receipt';
+import {Receipt,printReceipt} from '../components/receipt/Receipt';
 
 type PaymentMethod='cash'|'card'|'transfer'|'credit';
 const money=(n:number)=>`Rs ${Math.round(n||0).toLocaleString()}`;
 const paymentRates:Record<PaymentMethod,number>={cash:16,card:5,transfer:16,credit:16};
 const defaultCategoryNames=['Burgers','Pizza','Drinks','Shawarma','Biryani','Desserts','Sides'];
+const closedStatuses=['completed','cancelled','refunded'];
+const lineTotal=(i:any)=>((i.unitPrice||0)+(i.modifiers||[]).reduce((a:number,m:any)=>a+(m.priceAdjustment||0),0))*(i.quantity||1);
 
 export default function POS() {
   const cart=useCart(),toast=useToast();
+  const qc=useQueryClient();
   const [category,setCategory]=useState('all');
   const [search,setSearch]=useState('');
   const [pick,setPick]=useState<MenuItem|null>(null);
@@ -38,8 +41,10 @@ export default function POS() {
   const {data:categories=[]}=useQuery({queryKey:['categories'],queryFn:()=>api.get('/categories?limit=100').then(r=>r.data.data)});
   const {data:tables=[]}=useQuery({queryKey:['tables'],queryFn:()=>api.get('/tables?limit=100').then(r=>r.data.data)});
   const {data:staff=[]}=useQuery({queryKey:['staff-riders'],queryFn:()=>api.get('/staff?limit=100').then(r=>r.data.data)});
+  const {data:openOrders=[]}=useQuery({queryKey:['open-dine-in-orders'],queryFn:()=>api.get('/orders',{params:{type:'dine-in',limit:100}}).then(r=>r.data.data.filter((o:Order)=>!closedStatuses.includes(o.status)))});
   const {data:promos=[]}=useQuery({queryKey:['promos'],queryFn:()=>api.get('/promos?limit=100').then(r=>r.data.data).catch(()=>[])});
   const riders=staff.filter((u:any)=>u.role==='rider'&&u.status!=='inactive');
+  const activeTableOrder=openOrders.find((o:Order)=>String(o.table?._id||o.table)===String(cart.table?._id));
 
   const categoryOptions=useMemo(()=> {
     const db=categories.map((c:any)=>({key:c._id,name:c.name,id:c._id}));
@@ -55,7 +60,10 @@ export default function POS() {
     return matchesCategory&&p.name.toLowerCase().includes(search.toLowerCase());
   });
   const lineCount=(id:string)=>cart.items.filter(i=>i.menuItem===id).reduce((s,i)=>s+i.quantity,0);
-  const subtotal=cart.items.reduce((s,i)=>s+(i.unitPrice+i.modifiers.reduce((a,m)=>a+m.priceAdjustment,0))*i.quantity,0);
+  const existingItems=activeTableOrder?.items||[];
+  const existingSubtotal=existingItems.reduce((s:number,i:any)=>s+lineTotal(i),0);
+  const newSubtotal=cart.items.reduce((s,i)=>s+lineTotal(i),0);
+  const subtotal=existingSubtotal+newSubtotal;
   const discount=cart.discountType==='percentage'?subtotal*cart.discount/100:cart.discount;
   const taxable=Math.max(0,subtotal-discount);
   const taxRate=paymentRates[paymentMethod];
@@ -76,7 +84,13 @@ export default function POS() {
     toast.push(`Promo applied: ${found.discountType==='percentage'?`${found.discount}%`:money(found.discount)} discount`);
   };
 
+  const selectTable=(table:any)=> {
+    if(cart.table?._id!==table._id&&cart.items.length)toast.push('New item cart cleared for selected table','info');
+    cart.set({table,items:cart.table?._id===table._id?cart.items:[] as any,discount:cart.table?._id===table._id?cart.discount:0});
+  };
+
   const add=(p:MenuItem)=> {
+    if(cart.orderType==='dine-in'&&!cart.table){toast.push('Select a table before adding dine-in items','error');return;}
     if(p.modifierGroups?.length||p.addons?.length){setPick(p);setMods([]);setLineNote('');}
     else cart.add(p);
   };
@@ -93,25 +107,45 @@ export default function POS() {
   };
 
   const validateOrder=(requireCheckoutContext=false)=> {
-    if(!cart.items.length)return false;
-    if(requireCheckoutContext&&cart.orderType==='dine-in'&&!cart.table){toast.push('Select a table at checkout','error');return false;}
-    if(requireCheckoutContext&&needsAddress&&!deliveryAddress.trim()){toast.push(`${cart.orderType==='foodpanda'?'Foodpanda':'Delivery'} address is required`,'error');return false;}
-    if(requireCheckoutContext&&needsRider&&!riderId){toast.push('Select a rider at checkout','error');return false;}
+    if(!cart.items.length&&!(requireCheckoutContext&&activeTableOrder)){toast.push('Add items before placing an order','error');return false;}
+    if(cart.orderType==='dine-in'&&!cart.table){toast.push('Select a table before starting dine-in order','error');return false;}
+    if((requireCheckoutContext||cart.orderType==='delivery')&&needsAddress&&!deliveryAddress.trim()){toast.push(`${cart.orderType==='foodpanda'?'Foodpanda':'Delivery'} address is required`,'error');return false;}
+    if((requireCheckoutContext||cart.orderType==='delivery')&&needsRider&&!riderId){toast.push('Select a rider for this delivery order','error');return false;}
     return true;
   };
 
-  const payload=(status:string)=>({type:cart.orderType,table:cart.table?._id,customer:cart.customer?._id,customerName:showCustomerFields&&customerName.trim()?customerName.trim():undefined,customerPhone:showCustomerFields&&customerPhone.trim()?customerPhone.trim():undefined,guests:guestCount,deliveryAddress:needsAddress?deliveryAddress.trim():undefined,rider:needsRider?riderId||undefined:undefined,items:cart.items.map(i=>({menuItem:i.menuItem,name:i.name,quantity:i.quantity,unitPrice:i.unitPrice,modifiers:i.modifiers,notes:i.notes,station:i.station})),discount:cart.discount,discountType:cart.discountType,tax,serviceCharge:service,notes:paymentNote,status});
+  const orderItems=(includeExisting=true)=>[...(includeExisting?existingItems.map((i:any)=>({menuItem:i.menuItem?._id||i.menuItem,name:i.name,quantity:i.quantity,unitPrice:i.unitPrice,modifiers:i.modifiers||[],notes:i.notes,station:i.station})):[]),...cart.items.map(i=>({menuItem:i.menuItem,name:i.name,quantity:i.quantity,unitPrice:i.unitPrice,modifiers:i.modifiers,notes:i.notes,station:i.station}))];
 
-  const save=async(status:string,requireCheckoutContext=false)=> {
+  const payload=(status:string,items=cart.items.map(i=>({menuItem:i.menuItem,name:i.name,quantity:i.quantity,unitPrice:i.unitPrice,modifiers:i.modifiers,notes:i.notes,station:i.station})))=>({type:cart.orderType,table:cart.table?._id,customer:cart.customer?._id,customerName:showCustomerFields&&customerName.trim()?customerName.trim():undefined,customerPhone:showCustomerFields&&customerPhone.trim()?customerPhone.trim():undefined,guests:guestCount,deliveryAddress:needsAddress?deliveryAddress.trim():undefined,rider:needsRider?riderId||undefined:undefined,items,discount:cart.discount,discountType:cart.discountType,tax,serviceCharge:service,notes:paymentNote,status});
+
+  const clearAfterSend=()=> {
+    const table=cart.table;
+    cart.clear();
+    if(cart.orderType==='dine-in'&&table)cart.set({orderType:'dine-in',table});
+    else resetOrderFields();
+  };
+
+  const save=async(status:string,requireCheckoutContext=false,showReceipt=false)=> {
     if(!validateOrder(requireCheckoutContext))return;
     setSaving(true);
     try{
-      const {data}=await api.post('/orders',payload(status));
-      toast.push(status==='sent-to-kitchen'?'Order sent to kitchen':'Order saved');
-      if(status==='sent-to-kitchen'){cart.clear();resetOrderFields();}
+      const nextStatus=cart.orderType==='dine-in'&&activeTableOrder&&status==='draft'?activeTableOrder.status:status;
+      const request=cart.orderType==='dine-in'&&activeTableOrder
+        ?api.patch(`/orders/${activeTableOrder._id}`,payload(nextStatus,orderItems(true)))
+        :api.post('/orders',payload(nextStatus));
+      const {data}=await request;
+      toast.push(nextStatus==='sent-to-kitchen'?'Order sent to kitchen':'Order saved');
+      qc.invalidateQueries({queryKey:['open-dine-in-orders']});
+      qc.invalidateQueries({queryKey:['orders']});
+      if(showReceipt)setReceipt(data.data);
+      if(nextStatus==='sent-to-kitchen')clearAfterSend();
       return data.data;
     }catch(e){toast.push(messageOf(e),'error');}
     finally{setSaving(false);}
+  };
+
+  const placeOrder=async()=> {
+    await save('sent-to-kitchen',cart.orderType==='delivery',cart.orderType==='delivery');
   };
 
   const checkout=async()=> {
@@ -119,13 +153,17 @@ export default function POS() {
     if(paymentMethod==='cash'&&cashReceived&&Number(cashReceived)<total){toast.push('Cash received is less than total','error');return;}
     setSaving(true);
     try{
-      const order=await save('pending',true);
+      const order=activeTableOrder
+        ?(await api.patch(`/orders/${activeTableOrder._id}`,payload(activeTableOrder.status||'pending',orderItems(true)))).data.data
+        :await save('pending',true);
       if(!order)return;
       const {data}=await api.post(`/orders/${order._id}/pay`,{payments:[{method:paymentMethod,amount:total}]});
       setReceipt(data.data);
       setPayOpen(false);
       cart.clear();
       resetOrderFields();
+      qc.invalidateQueries({queryKey:['open-dine-in-orders']});
+      qc.invalidateQueries({queryKey:['orders']});
       toast.push('Payment completed');
     }catch(e){toast.push(messageOf(e),'error');}
     finally{setSaving(false);}
@@ -147,6 +185,20 @@ export default function POS() {
             <input value={deliveryAddress} onChange={e=>setDeliveryAddress(e.target.value)} placeholder={cart.orderType==='foodpanda'?'Foodpanda delivery address...':'Delivery address...'} className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 py-3.5 pl-12 pr-4 text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-zinc-500"/>
           </label>}
         </div>
+        {cart.orderType==='dine-in'&&<div className="mt-4">
+          <div className="mb-2 text-xs font-black uppercase tracking-wide text-zinc-500">Select table first</div>
+          <div className="flex gap-2 overflow-x-auto pb-1">{tables.map((t:any)=> {
+            const tableOrder=openOrders.find((o:Order)=>String(o.table?._id||o.table)===String(t._id));
+            return <button key={t._id} onClick={()=>selectTable(t)} className={`min-w-28 rounded-xl border px-3 py-2 text-left text-sm transition ${cart.table?._id===t._id?'border-zinc-100 bg-zinc-100 text-zinc-950':'border-zinc-800 bg-zinc-950 text-zinc-300 hover:border-zinc-500'}`}>
+              <span className="block font-black">{t.name}</span>
+              <span className="block truncate text-xs opacity-70">{tableOrder?'Open order':t.status}</span>
+            </button>;
+          })}</div>
+        </div>}
+        {cart.orderType==='delivery'&&<div className="mt-4 grid gap-3 lg:grid-cols-[1fr_220px]">
+          <label className="block text-xs font-black uppercase tracking-wide text-zinc-500">Rider<select value={riderId} onChange={e=>setRiderId(e.target.value)} className="mt-2 w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm normal-case tracking-normal text-zinc-100 outline-none focus:border-zinc-500"><option value="">Select rider</option>{riders.map((r:any)=><option key={r._id} value={r._id}>{r.name}</option>)}</select></label>
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm"><div className="text-xs font-black uppercase tracking-wide text-zinc-500">Delivery receipt</div><div className="mt-1 truncate font-bold text-zinc-200">{selectedRider?`Assigned to ${selectedRider.name}`:'Pick rider before sending'}</div></div>
+        </div>}
       </div>
 
       <div className="border-b border-zinc-800 p-5">
@@ -177,19 +229,19 @@ export default function POS() {
       </div>
     </section>
 
-    <CartPanel {...{cart,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,total,taxRate,paymentMethod,setPaymentMethod,setPayOpen,save,saving,promo,setPromo,applyPromo}}/>
+    <CartPanel {...{cart,tables,selectTable,activeTableOrder,existingItems,newSubtotal,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,total,taxRate,paymentMethod,setPaymentMethod,setPayOpen,save,placeOrder,saving,promo,setPromo,applyPromo}}/>
 
-    <div className="fixed inset-x-3 bottom-3 z-20 xl:hidden"><Button disabled={!cart.items.length} className="w-full shadow-xl" onClick={()=>setPayOpen(true)}><span className="flex w-full justify-between"><span>Checkout</span><span>{money(total)}</span></span></Button></div>
+    <div className="fixed inset-x-3 bottom-3 z-20 xl:hidden"><Button disabled={!cart.items.length&&!activeTableOrder} className="w-full shadow-xl" onClick={()=>setPayOpen(true)}><span className="flex w-full justify-between"><span>Checkout</span><span>{money(total)}</span></span></Button></div>
 
     <Modal open={!!pick} onClose={()=>setPick(null)} title="" className="max-w-2xl">
       {pick&&<ItemModal {...{pick,mods,setMods,lineNote,setLineNote,cart,setPick}}/>}
     </Modal>
 
     <Modal open={payOpen} onClose={()=>setPayOpen(false)} title="" className="max-w-2xl">
-      <PaymentModal {...{orderType:cart.orderType,tables,tableId:cart.table?._id||'',onTableChange:(id:string)=>cart.set({table:tables.find((t:any)=>t._id===id)||null}),riders,riderId,setRiderId,selectedRider,customerType,setCustomerType,customerName,setCustomerName,customerPhone,setCustomerPhone,deliveryAddress,setDeliveryAddress,needsAddress,showCustomerFields,paymentMethod,setPaymentMethod,guestCount,setGuestCount,cashReceived,setCashReceived,paymentNote,setPaymentNote,subtotal,discount,tax,total,taxRate,change,saving,checkout,onCancel:()=>setPayOpen(false)}}/>
+      <PaymentModal {...{orderType:cart.orderType,tables,tableId:cart.table?._id||'',onTableChange:(id:string)=>{const table=tables.find((t:any)=>t._id===id);if(table)selectTable(table);},riders,riderId,setRiderId,selectedRider,customerType,setCustomerType,customerName,setCustomerName,customerPhone,setCustomerPhone,deliveryAddress,setDeliveryAddress,needsAddress,showCustomerFields,paymentMethod,setPaymentMethod,guestCount,setGuestCount,cashReceived,setCashReceived,paymentNote,setPaymentNote,subtotal,discount,tax,total,taxRate,change,saving,checkout,onCancel:()=>setPayOpen(false)}}/>
     </Modal>
 
-    <Modal open={!!receipt} onClose={()=>setReceipt(null)} title="" className="max-w-2xl">{receipt&&<div className="max-h-[86vh] overflow-auto p-6"><Receipt order={receipt}/><div className="no-print mt-6 flex justify-end gap-3"><Button variant="secondary" onClick={()=>setReceipt(null)}>Close</Button><Button onClick={()=>window.print()}>Print Receipt</Button></div></div>}</Modal>
+    <Modal open={!!receipt} onClose={()=>setReceipt(null)} title="" className="max-w-2xl">{receipt&&<div className="max-h-[86vh] overflow-auto p-6"><Receipt order={receipt}/><div className="no-print mt-6 flex justify-end gap-3"><Button variant="secondary" onClick={()=>setReceipt(null)}>Close</Button><Button onClick={()=>printReceipt(receipt)}>Print Receipt</Button></div></div>}</Modal>
   </div>;
 }
 
@@ -211,10 +263,11 @@ function ItemModal({pick,mods,setMods,lineNote,setLineNote,cart,setPick}:any) {
   </div>;
 }
 
-function CartPanel({cart,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,total,taxRate,paymentMethod,setPaymentMethod,setPayOpen,save,saving,promo,setPromo,applyPromo}:any) {
+function CartPanel({cart,tables,selectTable,activeTableOrder,existingItems,newSubtotal,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,total,taxRate,paymentMethod,setPaymentMethod,setPayOpen,save,placeOrder,saving,promo,setPromo,applyPromo}:any) {
   const taxLabel=paymentMethod[0].toUpperCase()+paymentMethod.slice(1);
   const orderLabel=cart.orderType==='foodpanda'?'Foodpanda':cart.orderType.replace('-',' ');
-  const orderContext=cart.orderType==='dine-in'?cart.table?.name||'Table selected at checkout':needsRider?`${deliveryAddress||'Address required'} - ${selectedRider?.name||'Rider selected at checkout'}`:needsAddress?deliveryAddress||'Address required':'Counter order';
+  const orderContext=cart.orderType==='dine-in'?cart.table?.name||'Select table first':needsRider?`${deliveryAddress||'Address required'} - ${selectedRider?.name||'Rider required'}`:needsAddress?deliveryAddress||'Address required':'Counter order';
+  const hasBill=cart.items.length||activeTableOrder;
   return <aside className="hidden min-h-0 flex-col bg-[#101012] xl:flex">
     <div className="flex items-center justify-between border-b border-zinc-800 p-5">
       <div className="flex items-center gap-3"><ReceiptText className="text-zinc-400"/><h2 className="text-xl font-black text-white">Current Order</h2></div>
@@ -222,11 +275,16 @@ function CartPanel({cart,deliveryAddress,needsAddress,needsRider,selectedRider,s
     </div>
     <div className="border-b border-zinc-800 px-5 py-4">
       <div className="flex items-center justify-between gap-3 text-sm"><span className="shrink-0 font-black capitalize text-white">{orderLabel}</span><span className="truncate text-zinc-500">{orderContext}</span></div>
+      {cart.orderType==='dine-in'&&<select value={cart.table?._id||''} onChange={e=>{const table=tables.find((t:any)=>t._id===e.target.value);if(table)selectTable(table);}} className="mt-3 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none"><option value="">Select table first</option>{tables.map((t:any)=><option key={t._id} value={t._id}>{t.name} - {t.status}</option>)}</select>}
     </div>
     <div className="flex-1 overflow-y-auto p-4">
-      {cart.items.length?<div className="space-y-3">{cart.items.map((i:any)=><div key={i.id} className="rounded-2xl border border-zinc-800 bg-[#171719] p-4">
+      {activeTableOrder&&<div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+        <div className="flex items-center justify-between gap-3"><div><div className="text-sm font-black text-amber-200">Open table bill</div><div className="mt-1 text-xs text-amber-100/70">{activeTableOrder.orderNumber} - {activeTableOrder.status.replaceAll('-',' ')}</div></div><div className="font-black text-white">{money(existingItems.reduce((s:number,i:any)=>s+lineTotal(i),0))}</div></div>
+        <div className="mt-3 space-y-2">{existingItems.map((i:any)=><div key={i._id||i.menuItem} className="flex justify-between gap-3 text-sm text-zinc-200"><span className="truncate">{i.quantity} x {i.name}</span><span className="shrink-0 font-bold">{money(lineTotal(i))}</span></div>)}</div>
+      </div>}
+      {cart.items.length?<div className="space-y-3">{activeTableOrder&&<div className="px-1 text-xs font-black uppercase tracking-wide text-zinc-500">New additions</div>}{cart.items.map((i:any)=><div key={i.id} className="rounded-2xl border border-zinc-800 bg-[#171719] p-4">
         <div className="flex items-start justify-between gap-4"><div><div className="font-black text-white">{i.name}</div><div className="mt-1 font-bold text-white">{money((i.unitPrice+i.modifiers.reduce((a:number,m:any)=>a+m.priceAdjustment,0))*i.quantity)}</div>{i.modifiers.length>0&&<div className="mt-1 text-xs text-zinc-500">{i.modifiers.map((m:any)=>m.label).join(', ')}</div>}{i.notes&&<div className="mt-1 text-xs text-amber-300">{i.notes}</div>}</div><div className="flex items-center gap-3"><button onClick={()=>cart.quantity(i.id,-1)} className="grid h-8 w-8 place-items-center rounded-full border border-zinc-700 text-zinc-300"><Minus size={14}/></button><span className="w-5 text-center font-black text-white">{i.quantity}</span><button onClick={()=>cart.quantity(i.id,1)} className="grid h-8 w-8 place-items-center rounded-full border border-zinc-700 text-zinc-300"><Plus size={14}/></button><button onClick={()=>cart.remove(i.id)} className="text-rose-400"><Trash2 size={16}/></button></div></div>
-      </div>)}</div>:<Empty title="Add items to start" text=""/>}
+      </div>)}</div>:!activeTableOrder&&<Empty title={cart.orderType==='dine-in'?'Select a table and add items':'Add items to start'} text=""/>}
     </div>
     <div className="border-t border-zinc-800 p-4">
       <div className="mb-3 flex gap-2">
@@ -234,6 +292,8 @@ function CartPanel({cart,deliveryAddress,needsAddress,needsRider,selectedRider,s
         <label className="relative flex-1"><input value={promo} onChange={e=>setPromo(e.target.value)} placeholder="Promo code" className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-3 text-zinc-100 outline-none placeholder:text-zinc-500"/><button onClick={applyPromo} className="absolute right-2 top-2 rounded-xl bg-zinc-100 px-4 py-1.5 font-bold text-zinc-950">Apply</button></label>
       </div>
       <div className="space-y-3 border-t border-zinc-800 pt-4 text-sm">
+        {activeTableOrder&&<div className="flex justify-between text-zinc-400"><span>Existing table bill</span><span className="font-bold text-white">{money(subtotal-newSubtotal)}</span></div>}
+        {activeTableOrder&&newSubtotal>0&&<div className="flex justify-between text-zinc-400"><span>New additions</span><span className="font-bold text-white">{money(newSubtotal)}</span></div>}
         <div className="flex justify-between text-zinc-400"><span>Subtotal</span><span className="font-bold text-white">{money(subtotal)}</span></div>
         {discount>0&&<div className="flex justify-between text-zinc-400"><span>Discount</span><span className="font-bold text-white">-{money(discount)}</span></div>}
         <div className="flex justify-between text-zinc-400"><span>Tax ({taxRate}% {taxLabel})</span><span className="font-bold text-white">{money(tax)}</span></div>
@@ -241,8 +301,8 @@ function CartPanel({cart,deliveryAddress,needsAddress,needsRider,selectedRider,s
       </div>
       <div className="mt-5 grid grid-cols-2 gap-2">
         <Button variant="secondary" loading={saving} onClick={()=>save('draft')}>Hold</Button>
-        <Button variant="secondary" loading={saving} onClick={()=>save('sent-to-kitchen')}>Place Order</Button>
-        <Button disabled={!cart.items.length} onClick={()=>setPayOpen(true)} className="col-span-2"><ChevronRight size={18}/>Checkout - {money(total)}</Button>
+        <Button variant="secondary" loading={saving} onClick={placeOrder}>Place Order</Button>
+        <Button disabled={!hasBill} onClick={()=>setPayOpen(true)} className="col-span-2"><ChevronRight size={18}/>Checkout - {money(total)}</Button>
       </div>
     </div>
   </aside>;

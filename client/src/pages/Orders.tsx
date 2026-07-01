@@ -5,7 +5,7 @@ import {api,messageOf} from '../services/api';
 import {Badge,Button,Card,Modal,Empty} from '../components/ui';
 import {useSocket} from '../hooks/useSocket';
 import {useToast} from '../store/toast';
-import {Receipt} from '../components/receipt/Receipt';
+import {Receipt,printReceipt} from '../components/receipt/Receipt';
 import type {Order} from '../types';
 
 const money=(n:number)=>`Rs ${Math.round(n||0).toLocaleString()}`;
@@ -66,7 +66,7 @@ export default function Orders() {
           <div className="divide-y divide-zinc-800 rounded-xl border border-zinc-800">{selected.items.map((i:any)=><div className="flex justify-between p-3" key={i._id}><div><span className="font-semibold text-white">{i.quantity} x {i.name}</span>{i.modifiers?.length>0&&<small className="block text-zinc-500">{i.modifiers.map((m:any)=>m.label).join(', ')}</small>}{i.notes&&<small className="block text-amber-300">{i.notes}</small>}</div><span>{money(i.lineTotal)}</span></div>)}</div>
           <h3 className="mb-3 mt-6 font-bold text-white">Timeline</h3>
           <div className="flex overflow-x-auto pb-2">{selected.timeline.map((x:any,i:number)=><div key={i} className="flex min-w-32 items-center"><span className="h-3 w-3 rounded-full bg-zinc-100"/><span className="h-px flex-1 bg-zinc-800"/><div className="ml-2 text-xs capitalize text-zinc-400">{x.status.replaceAll('-',' ')}</div></div>)}</div>
-          <div className="mt-6 flex flex-wrap gap-2"><Button variant="secondary" onClick={()=>window.print()}><Printer size={16}/>Receipt</Button>{next[selected.status]&&<Button onClick={()=>transition(next[selected.status])}>Mark {next[selected.status].replaceAll('-',' ')}</Button>}{selected.status==='completed'&&<Button variant="danger" onClick={async()=>{try{const {data}=await api.post(`/orders/${selected._id}/refund`);setSelected(data.data);toast.push('Refund recorded');}catch(e){toast.push(messageOf(e),'error');}}}><RotateCcw size={16}/>Refund</Button>}</div>
+          <div className="mt-6 flex flex-wrap gap-2"><Button variant="secondary" onClick={()=>printReceipt(selected)}><Printer size={16}/>Receipt</Button>{next[selected.status]&&<Button onClick={()=>transition(next[selected.status])}>Mark {next[selected.status].replaceAll('-',' ')}</Button>}{selected.status==='completed'&&<Button variant="danger" onClick={async()=>{try{const {data}=await api.post(`/orders/${selected._id}/refund`);setSelected(data.data);toast.push('Refund recorded');}catch(e){toast.push(messageOf(e),'error');}}}><RotateCcw size={16}/>Refund</Button>}</div>
         </div>
         <div className="hidden print:block"><Receipt order={selected}/></div>
       </div>}
