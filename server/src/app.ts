@@ -15,6 +15,14 @@ export const corsOptions={
 		}
 		// Return allowed as boolean instead of throwing an Error to avoid
 		// turning preflight checks into internal server errors.
+		// Support an escape-hatch for quick debugging: set DEBUG_ALLOW_ALL_CORS=1
+		// in the server environment to allow all origins temporarily.
+		if(process.env.DEBUG_ALLOW_ALL_CORS==='1'){
+			// eslint-disable-next-line no-console
+			console.warn('DEBUG_ALLOW_ALL_CORS=1 is enabled — allowing all origins');
+			return callback(null, true);
+		}
+
 		callback(null, allowed);
 	},
 	credentials:true
