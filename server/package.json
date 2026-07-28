@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "dev:memory": "tsx src/dev-memory.ts",
-    "build": "tsc",
+    "build": "tsc && tsc src/serverless.ts --outDir dist --module ESNext --target ES2022 --moduleResolution bundler --esModuleInterop --strict",
+    "build:vercel": "tsc src/serverless.ts --outDir .vercel/output/functions/api --module ESNext --target ES2022 --moduleResolution bundler --esModuleInterop --strict",
     "start": "node dist/server.js",
     "seed": "tsx src/seed/index.ts",
     "test": "vitest run"
@@ -26,6 +27,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.8",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
