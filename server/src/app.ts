@@ -43,4 +43,4 @@ export const corsOptions={
 	},
 	credentials:true
 };
-export const app=express();app.set('trust proxy',1);app.use(helmet({crossOriginResourcePolicy:{policy:'cross-origin'}}));app.use(cors(corsOptions));app.options('*',cors(corsOptions));app.use(express.json({limit:'2mb'}));app.use(express.urlencoded({extended:true}));app.use(cookieParser());app.use(morgan(env.NODE_ENV==='production'?'combined':'dev'));app.get('/health',(_req,res)=>res.json({status:'ok',time:new Date()}));app.use('/api',api);app.use(notFound);app.use(errorHandler);
+export const app=express();app.set('trust proxy',1);app.use(helmet({crossOriginResourcePolicy:{policy:'cross-origin'}}));app.use(cors(corsOptions));app.use(express.json({limit:'2mb'}));app.use(express.urlencoded({extended:true}));app.use(cookieParser());app.use(morgan(env.NODE_ENV==='production'?'combined':'dev'));app.get('/health',(_req,res)=>res.json({status:'ok',time:new Date()}));app.use('/api',api);app.use(notFound);app.use(errorHandler);
