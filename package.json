@@ -4,11 +4,11 @@
   "version": "1.0.0",
   "workspaces": ["client", "server"],
   "scripts": {
-    "dev": "concurrently -n API,WEB -c blue,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
-    "build": "npm run build -w server && npm run build -w client",
-    "seed": "npm run seed -w server",
-    "start": "npm run start -w server",
-    "test": "npm run test -w server && npm run test -w client"
+    "dev": "concurrently -n API,WEB -c blue,magenta \"npm run dev -w @tableflow/server\" \"npm run dev -w @tableflow/client\"",
+    "build": "npm run build -w @tableflow/server && npm run build -w @tableflow/client",
+    "seed": "npm run seed -w @tableflow/server",
+    "start": "npm run start -w @tableflow/server",
+    "test": "npm run test -w @tableflow/server && npm run test -w @tableflow/client"
   },
   "devDependencies": {"concurrently": "^9.1.2"}
 }
