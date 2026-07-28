@@ -1,8 +1,24 @@
 import express from 'express';import cors from 'cors';import helmet from 'helmet';import cookieParser from 'cookie-parser';import morgan from 'morgan';import {api} from './routes/index.js';import {env} from './config/env.js';import {errorHandler,notFound} from './middleware/error.js';import {parseAllowedOrigins,isOriginAllowed} from './utils/origins.js';
 
 export const allowedOrigins=parseAllowedOrigins(env.CLIENT_URL);
+const isClientUrlDefault = env.CLIENT_URL==='http://localhost:5173';
 
-export const isAllowedOrigin=(origin?:string)=>!origin||isOriginAllowed(origin,allowedOrigins,env.NODE_ENV);
+export const isAllowedOrigin=(origin?:string)=>{
+	if(!origin){
+		return true;
+	}
+
+	if(isClientUrlDefault&&env.NODE_ENV==='production'){
+		// CLIENT_URL was not configured for production.
+		// Allow any HTTPS origin as a fallback so deployed clients can connect.
+		// Set CLIENT_URL explicitly to restrict origins.
+		// eslint-disable-next-line no-console
+		console.warn('CLIENT_URL is using the default localhost value in production; allowing any HTTPS origin. Set CLIENT_URL on the server deployment to restrict origins.');
+		return /^https:\/\/[^/]+$/.test(origin);
+	}
+
+	return isOriginAllowed(origin,allowedOrigins,env.NODE_ENV);
+};
 
 export const corsOptions={
 	origin:(origin:string|undefined,callback:(error:Error|null,allowed?:boolean)=>void)=>{
@@ -27,4 +43,4 @@ export const corsOptions={
 	},
 	credentials:true
 };
-export const app=express();app.set('trust proxy',1);app.use(helmet({crossOriginResourcePolicy:{policy:'cross-origin'}}));app.use(cors(corsOptions));app.use(express.json({limit:'2mb'}));app.use(express.urlencoded({extended:true}));app.use(cookieParser());app.use(morgan(env.NODE_ENV==='production'?'combined':'dev'));app.get('/health',(_req,res)=>res.json({status:'ok',time:new Date()}));app.use('/api',api);app.use(notFound);app.use(errorHandler);
+export const app=express();app.set('trust proxy',1);app.use(helmet({crossOriginResourcePolicy:{policy:'cross-origin'}}));app.use(cors(corsOptions));app.options('*',cors(corsOptions));app.use(express.json({limit:'2mb'}));app.use(express.urlencoded({extended:true}));app.use(cookieParser());app.use(morgan(env.NODE_ENV==='production'?'combined':'dev'));app.get('/health',(_req,res)=>res.json({status:'ok',time:new Date()}));app.use('/api',api);app.use(notFound);app.use(errorHandler);
