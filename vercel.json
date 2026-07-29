@@ -1,28 +1,23 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build -w @tableflow/server",
-  "outputDirectory": "server/dist",
-  "framework": "node",
-  "installCommand": "npm install",
-  "devCommand": "npm run dev -w @tableflow/server",
   "regions": ["iad1"],
   "functions": {
-    "server/dist/serverless.js": {
-      "maxDuration": 30,
-      "runtime": "nodejs22.x"
+    "api/index.ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/server/dist/serverless.js"
+      "destination": "/api"
     },
     {
       "source": "/health",
-      "destination": "/server/dist/serverless.js"
+      "destination": "/api"
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "CLIENT_URL": "https://table-flow-client-1jg9.vercel.app"
   }
 }

@@ -1,4 +1,4 @@
-import express from 'express';import cors from 'cors';import helmet from 'helmet';import cookieParser from 'cookie-parser';import morgan from 'morgan';import {api} from './routes/index.js';import {env} from './config/env.js';import {errorHandler,notFound} from './middleware/error.js';import {parseAllowedOrigins,isOriginAllowed} from './utils/origins.js';
+import express from 'express';import cors from 'cors';import helmet from 'helmet';import cookieParser from 'cookie-parser';import morgan from 'morgan';import {api} from './routes/index.js';import {env} from './config/env.js';import {errorHandler,notFound} from './middleware/error.js';import {parseAllowedOrigins,isOriginAllowed} from './utils/origins.js';import {connectDb} from './config/db.js';
 
 export const allowedOrigins=parseAllowedOrigins(env.CLIENT_URL);
 const isClientUrlDefault = env.CLIENT_URL==='http://localhost:5173';
@@ -53,4 +53,4 @@ export const app=express();app.set('trust proxy',1);app.use(helmet({crossOriginR
 		origin,
 		allowed:isAllowedOrigin(origin||undefined)
 	});
-});app.use('/api',api);app.use(notFound);app.use(errorHandler);
+});app.use('/api',async(_req,_res,next)=>{try{await connectDb();next()}catch(error){next(error)}} ,api);app.use(notFound);app.use(errorHandler);
