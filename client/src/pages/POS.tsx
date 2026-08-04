@@ -6,7 +6,7 @@ import {useCart} from '../store/cart';
 import {useToast} from '../store/toast';
 import {Button,Empty,Modal} from '../components/ui';
 import type {MenuItem,Order} from '../types';
-import {Receipt,printReceipt} from '../components/receipt/Receipt';
+import {Receipt,printReceipt,printReceipts} from '../components/receipt/Receipt';
 
 type PaymentMethod='cash'|'card'|'transfer'|'credit';
 const money=(n:number)=>`Rs ${Math.round(n||0).toLocaleString()}`;
@@ -37,14 +37,17 @@ export default function POS() {
   const [cashReceived,setCashReceived]=useState('');
   const [paymentNote,setPaymentNote]=useState('');
   const [promo,setPromo]=useState('');
+  const [manualDiscount,setManualDiscount]=useState('');
 
   const {data:products=[]}=useQuery({queryKey:['menu'],queryFn:()=>api.get('/menu-items?limit=100').then(r=>r.data.data)});
   const {data:categories=[]}=useQuery({queryKey:['categories'],queryFn:()=>api.get('/categories?limit=100').then(r=>r.data.data)});
   const {data:tables=[]}=useQuery({queryKey:['tables'],queryFn:()=>api.get('/tables?limit=100').then(r=>r.data.data)});
   const {data:staff=[]}=useQuery({queryKey:['staff-riders'],queryFn:()=>api.get('/staff?limit=100').then(r=>r.data.data)});
   const {data:openOrders=[]}=useQuery({queryKey:['open-dine-in-orders'],queryFn:()=>api.get('/orders',{params:{type:'dine-in',limit:100}}).then(r=>r.data.data.filter((o:Order)=>tableBillStatuses.includes(o.status)))});
+  const {data:openDeliveryOrders=[]}=useQuery({queryKey:['open-delivery-orders'],queryFn:()=>api.get('/orders',{params:{type:'delivery',limit:100}}).then(r=>r.data.data.filter((o:Order)=>!closedStatuses.includes(o.status)))});
   const {data:promos=[]}=useQuery({queryKey:['promos'],queryFn:()=>api.get('/promos?limit=100').then(r=>r.data.data).catch(()=>[])});
-  const riders=staff.filter((u:any)=>u.role==='rider'&&u.status!=='inactive');
+  const busyRiderIds=new Set(openDeliveryOrders.map((o:Order)=>String(o.rider?._id||o.rider)).filter(Boolean));
+  const riders=staff.filter((u:any)=>u.role==='rider'&&u.status==='active'&&!busyRiderIds.has(String(u._id)));
   const activeTableOrder=openOrders.find((o:Order)=>String(o.table?._id||o.table)===String(cart.table?._id));
 
   const categoryOptions=useMemo(()=> {
@@ -82,7 +85,15 @@ export default function POS() {
     const found=promos.find((p:any)=>p.active!==false&&p.code?.toLowerCase()===promo.trim().toLowerCase());
     if(!found){toast.push('Promo code not found','error');return;}
     cart.set({discountType:found.discountType,discount:Number(found.discount)});
+    setManualDiscount(String(found.discount));
     toast.push(`Promo applied: ${found.discountType==='percentage'?`${found.discount}%`:money(found.discount)} discount`);
+  };
+
+  const setManualDiscountValue=(value:string,type:'fixed'|'percentage')=> {
+    const amount=Math.max(0,Number(value)||0);
+    const capped=type==='percentage'?Math.min(100,amount):Math.min(subtotal,amount);
+    setManualDiscount(value);
+    cart.set({discountType:type,discount:capped});
   };
 
   const selectTable=(table:any)=> {
@@ -105,6 +116,7 @@ export default function POS() {
     setRiderId('');
     setGuestCount(1);
     setPromo('');
+    setManualDiscount('');
   };
 
   const validateOrder=(requireCheckoutContext=false)=> {
@@ -122,8 +134,8 @@ export default function POS() {
   const clearAfterSend=()=> {
     const table=cart.table;
     cart.clear();
+    resetOrderFields();
     if(cart.orderType==='dine-in'&&table)cart.set({orderType:'dine-in',table});
-    else resetOrderFields();
   };
 
   const save=async(status:string,requireCheckoutContext=false,showReceipt=false)=> {
@@ -231,7 +243,7 @@ export default function POS() {
       </div>
     </section>
 
-    <CartPanel {...{cart,tables,selectTable,activeTableOrder,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,total,taxRate,paymentMethod,setPaymentMethod,setPayOpen,save,placeOrder,saving,promo,setPromo,applyPromo}}/>
+    <CartPanel {...{cart,tables,selectTable,activeTableOrder,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,total,taxRate,paymentMethod,setPaymentMethod,setPayOpen,save,placeOrder,saving,promo,setPromo,applyPromo,manualDiscount,setManualDiscountValue}}/>
 
     <div className="fixed inset-x-3 bottom-3 z-20 xl:hidden"><Button disabled={!cart.items.length&&!activeTableOrder} className="w-full shadow-xl" onClick={()=>setPayOpen(true)}><span className="flex w-full justify-between"><span>Checkout</span><span>{money(total)}</span></span></Button></div>
 
@@ -243,7 +255,7 @@ export default function POS() {
       <PaymentModal {...{orderType:cart.orderType,tables,tableId:cart.table?._id||'',onTableChange:(id:string)=>{const table=tables.find((t:any)=>t._id===id);if(table)selectTable(table);},riders,riderId,setRiderId,selectedRider,customerType,setCustomerType,customerName,setCustomerName,customerPhone,setCustomerPhone,deliveryAddress,setDeliveryAddress,needsAddress,showCustomerFields,paymentMethod,setPaymentMethod,guestCount,setGuestCount,cashReceived,setCashReceived,paymentNote,setPaymentNote,subtotal,discount,tax,total,taxRate,change,saving,checkout,onCancel:()=>setPayOpen(false)}}/>
     </Modal>
 
-    <Modal open={!!receipt} onClose={()=>setReceipt(null)} title="" className="max-w-2xl">{receipt&&<div className="max-h-[86vh] overflow-auto p-6"><Receipt order={receipt}/><div className="no-print mt-6 flex justify-end gap-3"><Button variant="secondary" onClick={()=>setReceipt(null)}>Close</Button><Button onClick={()=>printReceipt(receipt)}>Print Receipt</Button></div></div>}</Modal>
+    <Modal open={!!receipt} onClose={()=>setReceipt(null)} title="" className="max-w-2xl">{receipt&&<div className="max-h-[86vh] overflow-auto p-6"><Receipt order={receipt}/><div className="no-print mt-6 flex flex-wrap justify-end gap-3"><Button variant="secondary" onClick={()=>setReceipt(null)}>Close</Button><Button variant="secondary" onClick={()=>printReceipt(receipt,'customer')}>Customer Receipt</Button><Button variant="secondary" onClick={()=>printReceipt(receipt,'kitchen')}>Kitchen Ticket</Button><Button onClick={()=>printReceipts(receipt)}>Print Both</Button></div></div>}</Modal>
   </div>;
 }
 
@@ -265,7 +277,7 @@ function ItemModal({pick,mods,setMods,lineNote,setLineNote,cart,setPick}:any) {
   </div>;
 }
 
-function CartPanel({cart,tables,selectTable,activeTableOrder,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,total,taxRate,paymentMethod,setPaymentMethod,setPayOpen,save,placeOrder,saving,promo,setPromo,applyPromo}:any) {
+function CartPanel({cart,tables,selectTable,activeTableOrder,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,total,taxRate,paymentMethod,setPaymentMethod,setPayOpen,save,placeOrder,saving,promo,setPromo,applyPromo,manualDiscount,setManualDiscountValue}:any) {
   const taxLabel=paymentMethod[0].toUpperCase()+paymentMethod.slice(1);
   const orderLabel=cart.orderType==='foodpanda'?'Foodpanda':cart.orderType.replace('-',' ');
   const orderContext=cart.orderType==='dine-in'?cart.table?.name||'Select table first':needsRider?`${deliveryAddress||'Address required'} - ${selectedRider?.name||'Rider required'}`:needsAddress?deliveryAddress||'Address required':'Counter order';
@@ -285,13 +297,14 @@ function CartPanel({cart,tables,selectTable,activeTableOrder,deliveryAddress,nee
       </div>)}</div>:!activeTableOrder&&<Empty title={cart.orderType==='dine-in'?'Select a table and add items':'Add items to start'} text=""/>}
     </div>
     <div className="border-t border-zinc-800 p-4">
-      <div className="mb-3 flex gap-2">
-        <label className="relative w-40 shrink-0"><select value={cart.discount?`${cart.discountType}:${cart.discount}`:'none'} onChange={e=>{const [type,value]=e.target.value.split(':');cart.set(e.target.value==='none'?{discount:0}:{discountType:type,discount:Number(value)});}} className="w-full appearance-none rounded-2xl border border-zinc-800 bg-zinc-950 py-3 pl-12 pr-8 font-semibold text-zinc-200 outline-none"><option value="none">No Discount</option><option value="percentage:10">Staff 10%</option><option value="percentage:15">Promo 15%</option><option value="fixed:100">Rs 100 Off</option></select><BadgePercent className="absolute left-4 top-3.5 text-zinc-400" size={17}/><ChevronDown className="absolute right-3 top-3.5 text-zinc-500" size={16}/></label>
+      <div className="mb-3 flex flex-wrap gap-2">
+        <label className="relative w-36 shrink-0"><select value={cart.discountType} onChange={e=>setManualDiscountValue(manualDiscount,e.target.value as 'fixed'|'percentage')} className="w-full appearance-none rounded-2xl border border-zinc-800 bg-zinc-950 py-3 pl-11 pr-7 font-semibold text-zinc-200 outline-none"><option value="fixed">Cash (Rs)</option><option value="percentage">Percent (%)</option></select><BadgePercent className="absolute left-3 top-3.5 text-zinc-400" size={17}/><ChevronDown className="absolute right-2 top-3.5 text-zinc-500" size={16}/></label>
+        <input value={manualDiscount} onChange={e=>setManualDiscountValue(e.target.value,cart.discountType)} type="number" min="0" max={cart.discountType==='percentage'?100:subtotal} placeholder={cart.discountType==='percentage'?'Discount %':'Discount Rs'} className="w-32 rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-semibold text-zinc-100 outline-none placeholder:text-zinc-500"/>
         <label className="relative flex-1"><input value={promo} onChange={e=>setPromo(e.target.value)} placeholder="Promo code" className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-3 text-zinc-100 outline-none placeholder:text-zinc-500"/><button onClick={applyPromo} className="absolute right-2 top-2 rounded-xl bg-zinc-100 px-4 py-1.5 font-bold text-zinc-950">Apply</button></label>
       </div>
       <div className="space-y-3 border-t border-zinc-800 pt-4 text-sm">
         <div className="flex justify-between text-zinc-400"><span>Subtotal</span><span className="font-bold text-white">{money(subtotal)}</span></div>
-        {discount>0&&<div className="flex justify-between text-zinc-400"><span>Discount</span><span className="font-bold text-white">-{money(discount)}</span></div>}
+        {discount>0&&<div className="flex justify-between text-zinc-400"><span>Discount {cart.discountType==='percentage'?`(${cart.discount}%)`:''}</span><span className="font-bold text-white">-{money(discount)}</span></div>}
         <div className="flex justify-between text-zinc-400"><span>Tax ({taxRate}% {taxLabel})</span><span className="font-bold text-white">{money(tax)}</span></div>
         <div className="flex justify-between border-t border-zinc-800 pt-4 text-xl font-black text-white"><span>Total</span><span>{money(total)}</span></div>
       </div>
