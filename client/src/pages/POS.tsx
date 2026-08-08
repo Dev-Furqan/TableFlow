@@ -10,7 +10,6 @@ import {Receipt,printReceipt,printReceipts} from '../components/receipt/Receipt'
 
 type PaymentMethod='cash'|'card'|'transfer'|'credit';
 const money=(n:number)=>`Rs ${Math.round(n||0).toLocaleString()}`;
-const paymentRates:Record<PaymentMethod,number>={cash:16,card:5,transfer:16,credit:16};
 const defaultCategoryNames=['Burgers','Pizza','Drinks','Shawarma','Biryani','Desserts','Sides'];
 const closedStatuses=['completed','cancelled','refunded'];
 const tableBillStatuses=['pending','sent-to-kitchen','preparing','ready','served'];
@@ -46,6 +45,7 @@ export default function POS() {
   const {data:openOrders=[]}=useQuery({queryKey:['open-dine-in-orders'],queryFn:()=>api.get('/orders',{params:{type:'dine-in',limit:100}}).then(r=>r.data.data.filter((o:Order)=>tableBillStatuses.includes(o.status)))});
   const {data:openDeliveryOrders=[]}=useQuery({queryKey:['open-delivery-orders'],queryFn:()=>api.get('/orders',{params:{type:'delivery',limit:100}}).then(r=>r.data.data.filter((o:Order)=>!closedStatuses.includes(o.status)))});
   const {data:promos=[]}=useQuery({queryKey:['promos'],queryFn:()=>api.get('/promos?limit=100').then(r=>r.data.data).catch(()=>[])});
+  const {data:settings=[]}=useQuery({queryKey:['settings'],queryFn:()=>api.get('/settings?limit=100').then(r=>r.data.data).catch(()=>[])});
   const busyRiderIds=new Set(openDeliveryOrders.map((o:Order)=>String(o.rider?._id||o.rider)).filter(Boolean));
   const riders=staff.filter((u:any)=>u.role==='rider'&&u.status==='active'&&!busyRiderIds.has(String(u._id)));
   const activeTableOrder=openOrders.find((o:Order)=>String(o.table?._id||o.table)===String(cart.table?._id));
@@ -70,9 +70,11 @@ export default function POS() {
   const subtotal=existingSubtotal+newSubtotal;
   const discount=cart.discountType==='percentage'?subtotal*cart.discount/100:cart.discount;
   const taxable=Math.max(0,subtotal-discount);
-  const taxRate=paymentRates[paymentMethod];
+  const chargeSettings=settings.find((setting:any)=>setting.key==='charges')?.value||{};
+  const taxRate=Math.max(0,Number(chargeSettings.salesTaxRate??chargeSettings.taxRate??15));
+  const serviceRate=Math.max(0,Number(chargeSettings.serviceChargeRate??10));
   const tax=taxable*taxRate/100;
-  const service=0;
+  const service=chargeSettings.serviceChargeEnabled===false?0:taxable*serviceRate/100;
   const total=Math.max(0,taxable+tax+service);
   const change=Math.max(0,Number(cashReceived||0)-total);
   const needsAddress=cart.orderType==='delivery'||cart.orderType==='foodpanda';
@@ -243,7 +245,7 @@ export default function POS() {
       </div>
     </section>
 
-    <CartPanel {...{cart,tables,selectTable,activeTableOrder,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,total,taxRate,paymentMethod,setPaymentMethod,setPayOpen,save,placeOrder,saving,promo,setPromo,applyPromo,manualDiscount,setManualDiscountValue}}/>
+    <CartPanel {...{cart,tables,selectTable,activeTableOrder,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,service,total,taxRate,serviceRate,paymentMethod,setPaymentMethod,setPayOpen,save,placeOrder,saving,promo,setPromo,applyPromo,manualDiscount,setManualDiscountValue}}/>
 
     <div className="fixed inset-x-3 bottom-3 z-20 xl:hidden"><Button disabled={!cart.items.length&&!activeTableOrder} className="w-full shadow-xl" onClick={()=>setPayOpen(true)}><span className="flex w-full justify-between"><span>Checkout</span><span>{money(total)}</span></span></Button></div>
 
@@ -252,7 +254,7 @@ export default function POS() {
     </Modal>
 
     <Modal open={payOpen} onClose={()=>setPayOpen(false)} title="" className="max-w-2xl">
-      <PaymentModal {...{orderType:cart.orderType,tables,tableId:cart.table?._id||'',onTableChange:(id:string)=>{const table=tables.find((t:any)=>t._id===id);if(table)selectTable(table);},riders,riderId,setRiderId,selectedRider,customerType,setCustomerType,customerName,setCustomerName,customerPhone,setCustomerPhone,deliveryAddress,setDeliveryAddress,needsAddress,showCustomerFields,paymentMethod,setPaymentMethod,guestCount,setGuestCount,cashReceived,setCashReceived,paymentNote,setPaymentNote,subtotal,discount,tax,total,taxRate,change,saving,checkout,onCancel:()=>setPayOpen(false)}}/>
+      <PaymentModal {...{orderType:cart.orderType,tables,tableId:cart.table?._id||'',onTableChange:(id:string)=>{const table=tables.find((t:any)=>t._id===id);if(table)selectTable(table);},riders,riderId,setRiderId,selectedRider,customerType,setCustomerType,customerName,setCustomerName,customerPhone,setCustomerPhone,deliveryAddress,setDeliveryAddress,needsAddress,showCustomerFields,paymentMethod,setPaymentMethod,guestCount,setGuestCount,cashReceived,setCashReceived,paymentNote,setPaymentNote,subtotal,discount,tax,service,total,taxRate,serviceRate,change,saving,checkout,onCancel:()=>setPayOpen(false)}}/>
     </Modal>
 
     <Modal open={!!receipt} onClose={()=>setReceipt(null)} title="" className="max-w-2xl">{receipt&&<div className="max-h-[86vh] overflow-auto p-6"><Receipt order={receipt}/><div className="no-print mt-6 flex flex-wrap justify-end gap-3"><Button variant="secondary" onClick={()=>setReceipt(null)}>Close</Button><Button variant="secondary" onClick={()=>printReceipt(receipt,'customer')}>Customer Receipt</Button><Button variant="secondary" onClick={()=>printReceipt(receipt,'kitchen')}>Kitchen Ticket</Button><Button onClick={()=>printReceipts(receipt)}>Print Both</Button></div></div>}</Modal>
@@ -277,8 +279,7 @@ function ItemModal({pick,mods,setMods,lineNote,setLineNote,cart,setPick}:any) {
   </div>;
 }
 
-function CartPanel({cart,tables,selectTable,activeTableOrder,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,total,taxRate,paymentMethod,setPaymentMethod,setPayOpen,save,placeOrder,saving,promo,setPromo,applyPromo,manualDiscount,setManualDiscountValue}:any) {
-  const taxLabel=paymentMethod[0].toUpperCase()+paymentMethod.slice(1);
+function CartPanel({cart,tables,selectTable,activeTableOrder,deliveryAddress,needsAddress,needsRider,selectedRider,subtotal,discount,tax,service,total,taxRate,serviceRate,paymentMethod,setPaymentMethod,setPayOpen,save,placeOrder,saving,promo,setPromo,applyPromo,manualDiscount,setManualDiscountValue}:any) {
   const orderLabel=cart.orderType==='foodpanda'?'Foodpanda':cart.orderType.replace('-',' ');
   const orderContext=cart.orderType==='dine-in'?cart.table?.name||'Select table first':needsRider?`${deliveryAddress||'Address required'} - ${selectedRider?.name||'Rider required'}`:needsAddress?deliveryAddress||'Address required':'Counter order';
   const hasBill=cart.items.length||activeTableOrder;
@@ -305,7 +306,8 @@ function CartPanel({cart,tables,selectTable,activeTableOrder,deliveryAddress,nee
       <div className="space-y-3 border-t border-zinc-800 pt-4 text-sm">
         <div className="flex justify-between text-zinc-400"><span>Subtotal</span><span className="font-bold text-white">{money(subtotal)}</span></div>
         {discount>0&&<div className="flex justify-between text-zinc-400"><span>Discount {cart.discountType==='percentage'?`(${cart.discount}%)`:''}</span><span className="font-bold text-white">-{money(discount)}</span></div>}
-        <div className="flex justify-between text-zinc-400"><span>Tax ({taxRate}% {taxLabel})</span><span className="font-bold text-white">{money(tax)}</span></div>
+        <div className="flex justify-between text-zinc-400"><span>Sales tax ({taxRate}%)</span><span className="font-bold text-white">{money(tax)}</span></div>
+        {service>0&&<div className="flex justify-between text-zinc-400"><span>Service charge ({serviceRate}%)</span><span className="font-bold text-white">{money(service)}</span></div>}
         <div className="flex justify-between border-t border-zinc-800 pt-4 text-xl font-black text-white"><span>Total</span><span>{money(total)}</span></div>
       </div>
       <div className="mt-5 grid grid-cols-2 gap-2">
@@ -318,7 +320,7 @@ function CartPanel({cart,tables,selectTable,activeTableOrder,deliveryAddress,nee
 }
 
 function PaymentModal(props:any) {
-  const {orderType,tables,tableId,onTableChange,riders,riderId,setRiderId,selectedRider,customerType,setCustomerType,customerName,setCustomerName,customerPhone,setCustomerPhone,deliveryAddress,setDeliveryAddress,needsAddress,showCustomerFields,paymentMethod,setPaymentMethod,guestCount,setGuestCount,cashReceived,setCashReceived,paymentNote,setPaymentNote,subtotal,discount,tax,total,taxRate,change,saving,checkout,onCancel}=props;
+  const {orderType,tables,tableId,onTableChange,riders,riderId,setRiderId,selectedRider,customerType,setCustomerType,customerName,setCustomerName,customerPhone,setCustomerPhone,deliveryAddress,setDeliveryAddress,needsAddress,showCustomerFields,paymentMethod,setPaymentMethod,guestCount,setGuestCount,cashReceived,setCashReceived,paymentNote,setPaymentNote,subtotal,discount,tax,service,total,taxRate,serviceRate,change,saving,checkout,onCancel}=props;
   const methods:[PaymentMethod,string,any][]=[['cash','Cash',Banknote],['card','Card',CreditCard],['transfer','Transfer',WalletCards],['credit','Credit',Users]];
   const orderLabel=orderType==='foodpanda'?'Foodpanda':orderType.replace('-',' ');
   return <div className="max-h-[86vh] overflow-y-auto p-8">
@@ -331,11 +333,11 @@ function PaymentModal(props:any) {
       </>}
       {needsAddress&&<LabelInput label={orderType==='foodpanda'?'Foodpanda Address':'Delivery Address'} value={deliveryAddress} onChange={setDeliveryAddress} placeholder="House, street, area, city"/>}
       {orderType==='delivery'&&<label className="block text-sm font-black text-white">Rider<select value={riderId} onChange={e=>setRiderId(e.target.value)} className="mt-3 w-full rounded-2xl border border-zinc-700 bg-[#171719] px-5 py-4 text-lg text-zinc-100 outline-none"><option value="">Select rider</option>{riders.map((r:any)=><option key={r._id} value={r._id}>{r.name}</option>)}</select>{selectedRider&&<span className="mt-2 block text-sm text-zinc-500">Assigned to {selectedRider.name}</span>}</label>}
-      <div><h3 className="mb-3 text-sm font-black text-white">Payment Method</h3><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{methods.map(([key,label,Icon])=><button key={key} onClick={()=>setPaymentMethod(key)} className={`rounded-2xl border p-5 text-center transition ${paymentMethod===key?'border-zinc-100 bg-[#222227] text-white':'border-zinc-700 text-zinc-400 hover:text-white'}`}><Icon className="mx-auto mb-3" size={22}/><div className="text-lg font-bold">{label}</div><div className="mt-2 text-sm text-zinc-500">{paymentRates[key]}%</div></button>)}</div></div>
+      <div><h3 className="mb-3 text-sm font-black text-white">Payment Method</h3><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{methods.map(([key,label,Icon])=><button key={key} onClick={()=>setPaymentMethod(key)} className={`rounded-2xl border p-5 text-center transition ${paymentMethod===key?'border-zinc-100 bg-[#222227] text-white':'border-zinc-700 text-zinc-400 hover:text-white'}`}><Icon className="mx-auto mb-3" size={22}/><div className="text-lg font-bold">{label}</div></button>)}</div></div>
       <div><h3 className="mb-3 text-sm font-black text-white">Split Bill</h3><div className="flex items-center gap-3 rounded-2xl border border-zinc-700 bg-[#222227] p-4"><Split className="text-zinc-400"/><select value={guestCount} onChange={e=>setGuestCount(Number(e.target.value))} className="rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-3 text-lg font-bold text-white"><option value={1}>1 guest</option><option value={2}>2 guests</option><option value={3}>3 guests</option><option value={4}>4 guests</option></select><span className="text-lg text-zinc-400">Single bill</span></div></div>
       {paymentMethod==='cash'&&<LabelInput label="Cash Received" value={cashReceived} onChange={setCashReceived} placeholder="Enter amount" type="number"/>}
       <label className="block text-sm font-black text-white">Notes (optional)<textarea value={paymentNote} onChange={e=>setPaymentNote(e.target.value)} placeholder="Special instructions..." className="mt-3 h-36 w-full resize-none rounded-2xl border border-zinc-700 bg-zinc-950 p-5 text-lg text-zinc-100 outline-none placeholder:text-zinc-500"/></label>
-      <div className="rounded-2xl border border-zinc-700 bg-[#222227] p-5 text-lg"><div className="flex justify-between text-zinc-400"><span>Subtotal</span><span>{money(subtotal)}</span></div>{discount>0&&<div className="mt-2 flex justify-between text-zinc-400"><span>Discount</span><span>-{money(discount)}</span></div>}<div className="mt-2 flex justify-between text-zinc-400"><span>Tax ({taxRate}% {paymentMethod[0].toUpperCase()+paymentMethod.slice(1)})</span><span>{money(tax)}</span></div><div className="mt-3 flex justify-between border-t border-zinc-700 pt-3 text-xl font-black text-white"><span>Total</span><span>{money(total)}</span></div>{paymentMethod==='cash'&&cashReceived&&<div className="mt-2 flex justify-between text-zinc-400"><span>Change</span><span>{money(change)}</span></div>}</div>
+      <div className="rounded-2xl border border-zinc-700 bg-[#222227] p-5 text-lg"><div className="flex justify-between text-zinc-400"><span>Subtotal</span><span>{money(subtotal)}</span></div>{discount>0&&<div className="mt-2 flex justify-between text-zinc-400"><span>Discount</span><span>-{money(discount)}</span></div>}<div className="mt-2 flex justify-between text-zinc-400"><span>Sales tax ({taxRate}%)</span><span>{money(tax)}</span></div>{service>0&&<div className="mt-2 flex justify-between text-zinc-400"><span>Service charge ({serviceRate}%)</span><span>{money(service)}</span></div>}<div className="mt-3 flex justify-between border-t border-zinc-700 pt-3 text-xl font-black text-white"><span>Total</span><span>{money(total)}</span></div>{paymentMethod==='cash'&&cashReceived&&<div className="mt-2 flex justify-between text-zinc-400"><span>Change</span><span>{money(change)}</span></div>}</div>
       <div className="flex justify-end gap-3"><Button variant="secondary" onClick={onCancel}>Cancel</Button><Button loading={saving} onClick={checkout}>Confirm Payment</Button></div>
     </div>
   </div>;

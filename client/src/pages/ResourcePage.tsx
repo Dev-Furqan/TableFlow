@@ -7,12 +7,12 @@ import {useToast} from '../store/toast';
 
 const configs:any={
   'menu-items':{subtitle:'Products, prices, stations and availability.',cols:['name','sku','price','kitchenStation','available'],fields:[['name','Name'],['category','Category'],['sku','SKU'],['price','Price','number'],['cost','Cost','number'],['kitchenStation','Kitchen station']]},
-  inventory:{subtitle:'Track stock levels, low-stock alerts, and ingredient values.',cols:['name','sku','unit','currentStock','minimumStock','costPrice'],fields:[['name','Name'],['sku','SKU'],['unit','Unit'],['currentStock','Current stock','number'],['minimumStock','Minimum stock','number'],['costPrice','Cost price','number']]},
+  inventory:{subtitle:'Add custom stock items with your own name, unit, quantity, and cost.',cols:['name','sku','unit','currentStock','minimumStock','costPrice'],fields:[['name','Item name'],['sku','SKU'],['unit','Unit'],['currentStock','Current stock','number'],['minimumStock','Minimum stock','number'],['costPrice','Unit cost','number']]},
   recipes:{subtitle:'Ingredient usage, food cost and margin by dish.',cols:['menuItem','ingredients','costPerServing'],fields:[]},
   customers:{subtitle:'Guest profiles, loyalty and order history.',cols:['name','phone','email','loyaltyPoints','totalSpent'],fields:[['name','Name'],['phone','Phone'],['email','Email'],['address','Address']]},
   suppliers:{subtitle:'Vendor contacts, purchases and balances.',cols:['name','contact','email','outstandingBalance'],fields:[['name','Name'],['contact','Contact'],['email','Email'],['address','Address']]},
   purchases:{subtitle:'Purchase orders, receiving and payments.',cols:['number','supplier','total','paymentStatus','received'],fields:[['number','PO number'],['total','Total','number'],['paymentStatus','Payment status']]},
-  expenses:{subtitle:'Operating costs by date and category.',cols:['category','date','amount','paymentMethod','note'],fields:[['category','Category'],['date','Date','date'],['amount','Amount','number'],['paymentMethod','Payment method'],['note','Note']]},
+  expenses:{subtitle:'Record custom operating expenses and their costs.',cols:['name','date','amount','paymentMethod','note'],fields:[['name','Expense name'],['date','Date','date'],['amount','Cost','number'],['paymentMethod','Payment method'],['note','Note']]},
   staff:{subtitle:'Team members, roles, branches and performance.',cols:['name','email','phone','role','status'],fields:[['name','Name'],['email','Email'],['phone','Phone'],['role','Role'],['status','Status'],['password','Password','password']]}
 };
 
@@ -64,7 +64,7 @@ export default function ResourcePage({endpoint,title}:{endpoint:string;title:str
     </Card>
 
     <Modal open={!!edit} onClose={()=>setEdit(null)} title={`${edit?._id?'Edit':'Add'} ${title.replace(/s$/,'')}`}>
-      <form onSubmit={save} className="space-y-4 p-5">{cfg.fields.map(([name,label,type='text']:any)=><ResourceField key={name} name={name} label={label} type={type} value={edit?.[name]} required={['name','category','amount'].includes(name)}/>)}<Button className="w-full">Save</Button></form>
+      <form onSubmit={save} className="space-y-4 p-5">{cfg.fields.map(([name,label,type='text']:any)=><ResourceField key={name} name={name} label={label} type={type} value={edit?.[name]} required={['name','amount'].includes(name)}/>)}<Button className="w-full">Save</Button></form>
     </Modal>
   </div>;
 }
