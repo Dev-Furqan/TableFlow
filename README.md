@@ -49,7 +49,10 @@ npm run dev       # API and client with hot reload
 npm run build     # production build for both workspaces
 npm run seed      # reset and repopulate demo data
 npm run start     # start the compiled API after build
+npm run integration:backfill-ids -w @tableflow/server  # assign stable IDs before first menu sync
 ```
+
+See [Orange Restaurant Website integration](docs/orange-website-integration.md) for the secure, database-isolated synchronization contract.
 
 ## Core workflow
 

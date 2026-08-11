@@ -10,6 +10,8 @@
     "build:vercel": "tsc src/serverless.ts --outDir .vercel/output/functions/api --module ESNext --target ES2022 --moduleResolution bundler --esModuleInterop --strict",
     "start": "node dist/server.js",
     "seed": "tsx src/seed/index.ts",
+    "integration:backfill-ids": "tsx src/scripts/backfill-integration-ids.ts",
+    "integration:worker": "tsx src/integration/worker.ts",
     "test": "vitest run"
   },
   "dependencies": {
