@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';import bcrypt from 'bcryptjs';import {z} from 'zod';import {User} from '../models/User.js';import {env} from '../config/env.js';import {AppError,asyncHandler} from '../utils/errors.js';
+import jwt from 'jsonwebtoken';import bcrypt from 'bcryptjs';import {z} from 'zod';import {User} from '../models/User.js';import '../models/Restaurant.js';import {env} from '../config/env.js';import {AppError,asyncHandler} from '../utils/errors.js';
 const credentials=z.object({email:z.string().email(),password:z.string().min(6)});
 const access=(id:string)=>jwt.sign({sub:id},env.JWT_ACCESS_SECRET,{expiresIn:`${env.ACCESS_TOKEN_MINUTES}m` as any});
 const refresh=(id:string)=>jwt.sign({sub:id},env.JWT_REFRESH_SECRET,{expiresIn:`${env.REFRESH_TOKEN_DAYS}d` as any});
