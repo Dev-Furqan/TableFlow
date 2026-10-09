@@ -1,6 +1,6 @@
-# TableFlow Restaurant POS
+# HyperDext POS
 
-TableFlow is an original MERN restaurant point-of-sale and back-office application. It includes a touch-friendly register, live kitchen display, order/table management, inventory and recipes, purchasing, expenses, reporting, staff access, settings, and thermal receipt printing.
+HyperDext POS is a multi-restaurant point-of-sale and back-office application. Each restaurant account is isolated: menus, orders, inventory, customers, reports, and staff are automatically scoped to its restaurant.
 
 ## Stack
 
@@ -27,6 +27,17 @@ npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173). The API runs at [http://localhost:4000](http://localhost:4000); `GET /health` is its health check.
+
+### Provision Burger Inn
+
+The first Burger Inn owner is provisioned without placing a password in source control. In PowerShell, choose an owner password and run:
+
+```powershell
+$env:RESTAURANT_OWNER_PASSWORD='choose-a-strong-password'
+npm run provision:burger-inn -w @tableflow/server
+```
+
+The owner signs in with `burgerinn91@gmail.com`. To add another restaurant, use the same command with `RESTAURANT_NAME`, `RESTAURANT_SLUG`, `RESTAURANT_CONTACT`, and `RESTAURANT_OWNER_EMAIL` set for that restaurant; the API scopes every record to that ID.
 
 For local-only defaults, the environment files are optional. Change both JWT secrets before exposing the app outside a development machine.
 

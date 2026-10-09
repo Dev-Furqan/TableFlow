@@ -1,5 +1,5 @@
 export type Role='owner'|'manager'|'cashier'|'waiter'|'kitchen'|'rider'|'accountant'|'viewer';
-export interface User{id:string;name:string;email:string;role:Role;permissions:string[]}
+export interface User{id:string;name:string;email:string;role:Role;permissions:string[];restaurant?:{id:string;name:string;slug:string}}
 export interface MenuItem{_id:string;name:string;description?:string;sku?:string;price:number;cost:number;category:{_id:string;name:string}|string;kitchenStation:string;preparationTime:number;available:boolean;modifierGroups?:{name:string;required?:boolean;multiple?:boolean;options:{_id:string;label:string;priceAdjustment:number}[]}[];addons?:{_id:string;label:string;priceAdjustment:number}[]}
 export interface Category{_id:string;name:string;icon?:string;displayOrder?:number;active?:boolean}
 export interface AddOn{_id:string;label:string;priceAdjustment:number;category?:Category|string;active:boolean}
