@@ -71,6 +71,7 @@ export default function POS() {
   const discount=cart.discountType==='percentage'?subtotal*cart.discount/100:cart.discount;
   const taxable=Math.max(0,subtotal-discount);
   const chargeSettings=settings.find((setting:any)=>setting.key==='charges')?.value||{};
+  const restaurantProfile=settings.find((setting:any)=>setting.key==='restaurant')?.value;
   const taxRate=Math.max(0,Number(chargeSettings.salesTaxRate??chargeSettings.taxRate??15));
   const serviceRate=Math.max(0,Number(chargeSettings.serviceChargeRate??10));
   const tax=taxable*taxRate/100;
@@ -257,7 +258,7 @@ export default function POS() {
       <PaymentModal {...{orderType:cart.orderType,tables,tableId:cart.table?._id||'',onTableChange:(id:string)=>{const table=tables.find((t:any)=>t._id===id);if(table)selectTable(table);},riders,riderId,setRiderId,selectedRider,customerType,setCustomerType,customerName,setCustomerName,customerPhone,setCustomerPhone,deliveryAddress,setDeliveryAddress,needsAddress,showCustomerFields,paymentMethod,setPaymentMethod,guestCount,setGuestCount,cashReceived,setCashReceived,paymentNote,setPaymentNote,subtotal,discount,tax,service,total,taxRate,serviceRate,change,saving,checkout,onCancel:()=>setPayOpen(false)}}/>
     </Modal>
 
-    <Modal open={!!receipt} onClose={()=>setReceipt(null)} title="" className="max-w-2xl">{receipt&&<div className="max-h-[86vh] overflow-auto p-6"><Receipt order={receipt}/><div className="no-print mt-6 flex flex-wrap justify-end gap-3"><Button variant="secondary" onClick={()=>setReceipt(null)}>Close</Button><Button variant="secondary" onClick={()=>printReceipt(receipt,'customer')}>Customer Receipt</Button><Button variant="secondary" onClick={()=>printReceipt(receipt,'kitchen')}>Kitchen Ticket</Button><Button onClick={()=>printReceipts(receipt)}>Print Both</Button></div></div>}</Modal>
+    <Modal open={!!receipt} onClose={()=>setReceipt(null)} title="" className="max-w-2xl">{receipt&&<div className="max-h-[86vh] overflow-auto p-6"><Receipt order={receipt} profile={restaurantProfile}/><div className="no-print mt-6 flex flex-wrap justify-end gap-3"><Button variant="secondary" onClick={()=>setReceipt(null)}>Close</Button><Button variant="secondary" onClick={()=>printReceipt(receipt,'customer',restaurantProfile)}>Customer Receipt</Button><Button variant="secondary" onClick={()=>printReceipt(receipt,'kitchen',restaurantProfile)}>Kitchen Ticket</Button><Button onClick={()=>printReceipts(receipt,['customer','kitchen'],restaurantProfile)}>Print Both</Button></div></div>}</Modal>
   </div>;
 }
 
