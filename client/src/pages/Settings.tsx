@@ -22,7 +22,7 @@ export default function Settings() {
   const chargeSetting=settings.find((setting:any)=>setting.key==='charges');
   useEffect(()=>{if(profileSetting?.value){const value=profileSetting.value;setProfile({name:value.name??defaultProfile.name,phone:value.phone??defaultProfile.phone,email:value.email??defaultProfile.email,timezone:value.timezone??defaultProfile.timezone,address:value.address??defaultProfile.address});}},[profileSetting]);
   useEffect(()=>{if(chargeSetting?.value){const value=chargeSetting.value;setCharges({salesTaxRate:Number(value.salesTaxRate??value.taxRate??15),serviceChargeRate:Number(value.serviceChargeRate??10),serviceChargeEnabled:value.serviceChargeEnabled??true});}},[chargeSetting]);
-  const saveSetting=async(setting:any,key:string,value:unknown)=>{const body={key,value};return setting?._id?api.patch(`/settings/${setting._id}`,body):api.post('/settings',body);};
+  const saveSetting=async(_setting:any,key:string,value:unknown)=>api.put(`/settings/${encodeURIComponent(key)}`,{value});
   const saveProfile=async(e:React.FormEvent)=>{e.preventDefault();setSavingProfile(true);try{await saveSetting(profileSetting,'restaurant',profile);await qc.invalidateQueries({queryKey:['settings']});toast.push('Restaurant profile saved');}catch(error){toast.push(messageOf(error),'error');}finally{setSavingProfile(false);}};
   const saveCharges=async(e:React.FormEvent)=>{e.preventDefault();setSavingCharges(true);try{await saveSetting(chargeSetting,'charges',charges);await qc.invalidateQueries({queryKey:['settings']});toast.push('Tax and service charge settings saved');}catch(error){toast.push(messageOf(error),'error');}finally{setSavingCharges(false);}};
   return <div className="space-y-7">
