@@ -4,6 +4,7 @@ import {Search,Plus,MoreHorizontal,Download,AlertTriangle,RefreshCcw} from 'luci
 import {api,messageOf} from '../services/api';
 import {Badge,Button,Card,Empty,Field,Modal} from '../components/ui';
 import {useToast} from '../store/toast';
+import {downloadTable,type ExportFormat} from '../utils/export';
 
 const configs:any={
   'menu-items':{subtitle:'Products, prices, stations and availability.',cols:['name','sku','price','kitchenStation','available'],fields:[['name','Name'],['category','Category'],['sku','SKU'],['price','Price','number'],['cost','Cost','number'],['kitchenStation','Kitchen station']]},
@@ -25,6 +26,7 @@ export default function ResourcePage({endpoint,title}:{endpoint:string;title:str
   if(endpoint==='reports/accounting')return <Accounting/>;
   const cfg=configs[endpoint]||{subtitle:'Manage your restaurant records.',cols:['name'],fields:[['name','Name']]};
   const [search,setSearch]=useState('');
+  const [exportFormat,setExportFormat]=useState<ExportFormat>('xlsx');
   const [edit,setEdit]=useState<any>(null);
   const qc=useQueryClient(),toast=useToast();
   const {data,isLoading}=useQuery({queryKey:[endpoint,search],queryFn:()=>api.get(`/${endpoint}`,{params:{search,limit:100}}).then(r=>r.data)});
@@ -33,6 +35,7 @@ export default function ResourcePage({endpoint,title}:{endpoint:string;title:str
 
   const lowStock=endpoint==='inventory'?rows.filter((x:any)=>x.currentStock<=x.minimumStock).length:0;
   const stockValue=endpoint==='inventory'?rows.reduce((sum:number,x:any)=>sum+(Number(x.currentStock)||0)*(Number(x.costPrice)||0),0):0;
+  const exportRows=()=>downloadTable({title,format:exportFormat,rows,columns:cfg.cols.map((key:string)=>({key,label:key.replace(/([A-Z])/g,' $1').replace(/^./,letter=>letter.toUpperCase()),value:(row:any)=>display(row[key],key)}))});
 
   return <div className="space-y-7">
     <div className="flex flex-col justify-between gap-5 border-b border-zinc-800 pb-7 xl:flex-row xl:items-end">
@@ -45,7 +48,10 @@ export default function ResourcePage({endpoint,title}:{endpoint:string;title:str
         </div>
       </div>
       <div className="flex gap-2">
-        <Button variant="secondary"><Download size={16}/>Export</Button>
+        <select value={exportFormat} onChange={event=>setExportFormat(event.target.value as ExportFormat)} aria-label="Export format" className="dark-input">
+          <option value="xlsx">Excel (.xlsx)</option><option value="pdf">PDF (.pdf)</option>
+        </select>
+        <Button variant="secondary" onClick={exportRows} disabled={!rows.length}><Download size={16}/>Export</Button>
         {cfg.fields.length>0&&<Button onClick={()=>setEdit({})}><Plus size={17}/>Add {title.replace(/s$/,'').toLowerCase()}</Button>}
       </div>
     </div>

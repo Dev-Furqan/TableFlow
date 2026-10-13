@@ -4,16 +4,19 @@ import {useQuery} from '@tanstack/react-query';
 import {api} from '../services/api';
 import {Button,Card,Field} from '../components/ui';
 import {BarChart,Bar,CartesianGrid,ResponsiveContainer,Tooltip,XAxis,YAxis} from 'recharts';
+import {downloadTable,type ExportFormat} from '../utils/export';
 
 export default function Reports() {
   const [from,setFrom]=useState(new Date(Date.now()-30*864e5).toISOString().slice(0,10)),[to,setTo]=useState(new Date().toISOString().slice(0,10));
+  const [exportFormat,setExportFormat]=useState<ExportFormat>('xlsx');
   const {data={}}=useQuery({queryKey:['reports',from,to],queryFn:()=>api.get('/reports/accounting',{params:{from,to}}).then(r=>r.data.data)});
   const chart=[{name:'Sales',value:data.sales||0},{name:'Purchases',value:data.purchases||0},{name:'Expenses',value:data.expenses||0},{name:'Net profit',value:data.netProfit||0}];
+  const exportReport=(title='Sales report')=>downloadTable({title,format:exportFormat,rows:chart,columns:[{key:'name',label:'Metric'},{key:'value',label:'Amount (Rs)'}]});
 
   return <div className="space-y-7">
     <div className="flex flex-col justify-between gap-4 border-b border-zinc-800 pb-7 sm:flex-row sm:items-end">
       <div><h2 className="text-3xl font-extrabold text-white">Sales Reports</h2><p className="mt-2 text-zinc-400">Turn service activity into useful decisions.</p></div>
-      <div className="flex gap-2"><select className="dark-input min-w-44"><option>Today</option><option>This week</option><option>This month</option></select><Button variant="secondary" onClick={()=>location.assign('/api/reports/export/orders')}><Download size={17}/>Export CSV</Button></div>
+      <div className="flex gap-2"><select className="dark-input min-w-44"><option>Today</option><option>This week</option><option>This month</option></select><select value={exportFormat} onChange={event=>setExportFormat(event.target.value as ExportFormat)} aria-label="Export format" className="dark-input"><option value="xlsx">Excel</option><option value="pdf">PDF</option></select><Button variant="secondary" onClick={()=>exportReport()}><Download size={17}/>Export</Button></div>
     </div>
 
     <Card className="flex flex-wrap items-end gap-3 p-4">
@@ -33,7 +36,7 @@ export default function Reports() {
       </Card>
       <Card className="p-6">
         <h3 className="font-extrabold text-white">Report library</h3>
-        <div className="mt-4 divide-y divide-zinc-800">{['Sales by item','Sales by category','Sales by staff','Inventory status','Profit & loss','Table utilisation'].map(x=><button key={x} className="flex w-full items-center justify-between py-3 text-sm font-semibold text-zinc-300 hover:text-white"><span>{x}</span><Download size={15}/></button>)}</div>
+        <div className="mt-4 divide-y divide-zinc-800">{['Sales by item','Sales by category','Sales by staff','Inventory status','Profit & loss','Table utilisation'].map(x=><button key={x} onClick={()=>exportReport(x)} className="flex w-full items-center justify-between py-3 text-sm font-semibold text-zinc-300 hover:text-white"><span>{x}</span><Download size={15}/></button>)}</div>
       </Card>
     </div>
   </div>;
