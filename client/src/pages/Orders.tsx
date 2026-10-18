@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
-import {Search,Printer,RotateCcw,ChevronRight,RefreshCcw} from 'lucide-react';
+import {Search,Printer,RotateCcw,ChevronRight,RefreshCcw,Trash2} from 'lucide-react';
 import {api,messageOf} from '../services/api';
 import {Badge,Button,Card,Modal,Empty} from '../components/ui';
 import {useSocket} from '../hooks/useSocket';
@@ -18,7 +18,7 @@ export default function Orders() {
   const {data,isLoading}=useQuery({queryKey:['orders',search,status],queryFn:()=>api.get('/orders',{params:{search,status,limit:100}}).then(r=>r.data)});
   const {data:staff=[]}=useQuery({queryKey:['staff-riders'],queryFn:()=>api.get('/staff?limit=100').then(r=>r.data.data)});
   const {data:settings=[]}=useQuery({queryKey:['settings'],queryFn:()=>api.get('/settings?limit=100').then(r=>r.data.data).catch(()=>[])});
-  useSocket({'order:created':()=>qc.invalidateQueries({queryKey:['orders']}),'order:updated':()=>qc.invalidateQueries({queryKey:['orders']}),'order:completed':()=>qc.invalidateQueries({queryKey:['orders']})});
+  useSocket({'order:created':()=>qc.invalidateQueries({queryKey:['orders']}),'order:updated':()=>qc.invalidateQueries({queryKey:['orders']}),'order:completed':()=>qc.invalidateQueries({queryKey:['orders']}),'order:deleted':()=>qc.invalidateQueries({queryKey:['orders']})});
   const rows=data?.data||[];
   const busyRiderIds=new Set(rows.filter((o:Order)=>o.type==='delivery'&&!['completed','cancelled','refunded'].includes(o.status)&&String(o._id)!==String(selected?._id)).map((o:Order)=>String(o.rider?._id||o.rider)).filter(Boolean));
   const availableRiders=staff.filter((u:any)=>u.role==='rider'&&u.status==='active'&&!busyRiderIds.has(String(u._id)));
@@ -27,6 +27,7 @@ export default function Orders() {
   const restaurantProfile=settings.find((setting:any)=>setting.key==='restaurant')?.value;
   const transition=async(next:string)=>{if(!selected)return;try{const {data}=await api.post(`/orders/${selected._id}/status`,{status:next});setSelected(data.data);qc.invalidateQueries({queryKey:['orders']});toast.push(`Order marked ${next}`);}catch(e){toast.push(messageOf(e),'error');}};
   const assignRider=async(riderId:string)=>{if(!selected||!riderId)return;try{const {data}=await api.patch(`/orders/${selected._id}`,{rider:riderId});setSelected(data.data);qc.invalidateQueries({queryKey:['orders']});toast.push('Rider assigned to delivery');}catch(e){toast.push(messageOf(e),'error');}};
+  const removeOrder=async()=>{if(!selected||!window.confirm(`Delete ${selected.orderNumber}? This cannot be undone.`))return;try{await api.delete(`/orders/${selected._id}`);setSelected(null);qc.invalidateQueries({queryKey:['orders']});qc.invalidateQueries({queryKey:['tables']});toast.push('Order deleted');}catch(e){toast.push(messageOf(e),'error');}};
   const next:any={'sent-to-kitchen':'preparing',preparing:'ready',ready:'served',served:'completed',draft:'pending',pending:'sent-to-kitchen'};
 
   return <div className="space-y-7">
@@ -73,7 +74,7 @@ export default function Orders() {
           {selected.type==='delivery'&&<label className="mt-6 block text-sm font-bold text-white">Assign available rider<select value={selected.rider?._id||selected.rider||''} onChange={e=>assignRider(e.target.value)} className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-zinc-100"><option value="">Select rider</option>{selected.rider&&<option value={selected.rider?._id||selected.rider}>{selected.rider?.name||'Current rider'} (currently assigned)</option>}{availableRiders.filter((r:any)=>String(r._id)!==String(selected.rider?._id||selected.rider)).map((r:any)=><option key={r._id} value={r._id}>{r.name}{r.phone?` - ${r.phone}`:''}</option>)}</select></label>}
           <h3 className="mb-3 mt-6 font-bold text-white">Timeline</h3>
           <div className="flex overflow-x-auto pb-2">{selected.timeline.map((x:any,i:number)=><div key={i} className="flex min-w-32 items-center"><span className="h-3 w-3 rounded-full bg-zinc-100"/><span className="h-px flex-1 bg-zinc-800"/><div className="ml-2 text-xs capitalize text-zinc-400">{x.status.replaceAll('-',' ')}</div></div>)}</div>
-          <div className="mt-6 flex flex-wrap gap-2"><Button variant="secondary" onClick={()=>printReceipt(selected,'customer',restaurantProfile)}><Printer size={16}/>Receipt</Button>{next[selected.status]&&<Button onClick={()=>transition(next[selected.status])}>Mark {next[selected.status].replaceAll('-',' ')}</Button>}{selected.status==='completed'&&<Button variant="danger" onClick={async()=>{try{const {data}=await api.post(`/orders/${selected._id}/refund`);setSelected(data.data);toast.push('Refund recorded');}catch(e){toast.push(messageOf(e),'error');}}}><RotateCcw size={16}/>Refund</Button>}</div>
+          <div className="mt-6 flex flex-wrap gap-2"><Button variant="secondary" onClick={()=>printReceipt(selected,'customer',restaurantProfile)}><Printer size={16}/>Receipt</Button>{next[selected.status]&&<Button onClick={()=>transition(next[selected.status])}>Mark {next[selected.status].replaceAll('-',' ')}</Button>}{selected.status==='completed'&&<Button variant="danger" onClick={async()=>{try{const {data}=await api.post(`/orders/${selected._id}/refund`);setSelected(data.data);toast.push('Refund recorded');}catch(e){toast.push(messageOf(e),'error');}}}><RotateCcw size={16}/>Refund</Button>}<Button variant="danger" onClick={removeOrder}><Trash2 size={16}/>Delete order</Button></div>
         </div>
         <div className="hidden print:block"><Receipt order={selected} profile={restaurantProfile}/></div>
       </div>}

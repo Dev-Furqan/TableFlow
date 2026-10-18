@@ -7,6 +7,6 @@ export interface Deal{_id:string;name:string;description?:string;price:number;it
 export interface PromoCode{_id:string;code:string;label?:string;discountType:'fixed'|'percentage';discount:number;active:boolean}
 export interface InventoryItem{_id:string;name:string;sku?:string;unit:string;currentStock:number;minimumStock:number;costPrice:number}
 export interface Recipe{_id:string;menuItem:MenuItem|string;ingredients:{item:InventoryItem|string;quantity:number}[];costPerServing:number}
-export interface CartLine{id:string;menuItem:string;name:string;quantity:number;unitPrice:number;station:string;modifiers:{label:string;priceAdjustment:number}[];notes?:string}
+export interface CartLine{id:string;menuItem:string;name:string;quantity:number;unitPrice:number;station:string;modifiers:{label:string;priceAdjustment:number}[];notes?:string;deal?:string;dealItems?:{menuItem:string;name:string;quantity:number;station?:string}[]}
 export interface Order{_id:string;orderNumber:string;type:'dine-in'|'takeaway'|'delivery'|'foodpanda';status:string;table?:any;customer?:any;customerName?:string;customerPhone?:string;guests?:number;deliveryAddress?:string;rider?:any;items:any[];subtotal:number;discount:number;discountType?:'fixed'|'percentage';tax:number;serviceCharge:number;total:number;payments:any[];timeline:any[];createdAt:string;staff?:any;notes?:string}
 export interface Paged<T>{data:T[];meta:{page:number;limit:number;total:number;pages:number}}

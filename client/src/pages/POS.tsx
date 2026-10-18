@@ -7,6 +7,7 @@ import {useToast} from '../store/toast';
 import {Button,Empty,Modal} from '../components/ui';
 import type {MenuItem,Order} from '../types';
 import {Receipt,printReceipt,printReceipts} from '../components/receipt/Receipt';
+import {useSearchParams} from 'react-router-dom';
 
 type PaymentMethod='cash'|'card'|'transfer'|'credit';
 const money=(n:number)=>`Rs ${Math.round(n||0).toLocaleString()}`;
@@ -18,6 +19,8 @@ const lineTotal=(i:any)=>((i.unitPrice||0)+(i.modifiers||[]).reduce((a:number,m:
 export default function POS() {
   const cart=useCart(),toast=useToast();
   const qc=useQueryClient();
+  const [searchParams]=useSearchParams();
+  const posDate=searchParams.get('date')||new Date().toISOString().slice(0,10);
   const [category,setCategory]=useState('all');
   const [search,setSearch]=useState('');
   const [pick,setPick]=useState<MenuItem|null>(null);
@@ -39,11 +42,12 @@ export default function POS() {
   const [manualDiscount,setManualDiscount]=useState('');
 
   const {data:products=[]}=useQuery({queryKey:['menu'],queryFn:()=>api.get('/menu-items?limit=100').then(r=>r.data.data)});
+  const {data:deals=[]}=useQuery({queryKey:['deals'],queryFn:()=>api.get('/deals?limit=100').then(r=>r.data.data)});
   const {data:categories=[]}=useQuery({queryKey:['categories'],queryFn:()=>api.get('/categories?limit=100').then(r=>r.data.data)});
   const {data:tables=[]}=useQuery({queryKey:['tables'],queryFn:()=>api.get('/tables?limit=100').then(r=>r.data.data)});
   const {data:staff=[]}=useQuery({queryKey:['staff-riders'],queryFn:()=>api.get('/staff?limit=100').then(r=>r.data.data)});
-  const {data:openOrders=[]}=useQuery({queryKey:['open-dine-in-orders'],queryFn:()=>api.get('/orders',{params:{type:'dine-in',limit:100}}).then(r=>r.data.data.filter((o:Order)=>tableBillStatuses.includes(o.status)))});
-  const {data:openDeliveryOrders=[]}=useQuery({queryKey:['open-delivery-orders'],queryFn:()=>api.get('/orders',{params:{type:'delivery',limit:100}}).then(r=>r.data.data.filter((o:Order)=>!closedStatuses.includes(o.status)))});
+  const {data:openOrders=[]}=useQuery({queryKey:['open-dine-in-orders',posDate],queryFn:()=>api.get('/orders',{params:{type:'dine-in',date:posDate,limit:100}}).then(r=>r.data.data.filter((o:Order)=>tableBillStatuses.includes(o.status)))});
+  const {data:openDeliveryOrders=[]}=useQuery({queryKey:['open-delivery-orders',posDate],queryFn:()=>api.get('/orders',{params:{type:'delivery',date:posDate,limit:100}}).then(r=>r.data.data.filter((o:Order)=>!closedStatuses.includes(o.status)))});
   const {data:promos=[]}=useQuery({queryKey:['promos'],queryFn:()=>api.get('/promos?limit=100').then(r=>r.data.data).catch(()=>[])});
   const {data:settings=[]}=useQuery({queryKey:['settings'],queryFn:()=>api.get('/settings?limit=100').then(r=>r.data.data).catch(()=>[])});
   const busyRiderIds=new Set(openDeliveryOrders.map((o:Order)=>String(o.rider?._id||o.rider)).filter(Boolean));
@@ -109,6 +113,11 @@ export default function POS() {
     if(p.modifierGroups?.length||p.addons?.length){setPick(p);setMods([]);setLineNote('');}
     else cart.add(p);
   };
+  const addDeal=(deal:any)=> {
+    if(cart.orderType==='dine-in'&&!cart.table){toast.push('Select a table before adding dine-in items','error');return;}
+    if(!deal.items?.length){toast.push('This deal has no items yet','error');return;}
+    cart.addDeal(deal);
+  };
 
   const resetOrderFields=()=> {
     setCashReceived('');
@@ -130,9 +139,9 @@ export default function POS() {
     return true;
   };
 
-  const orderItems=(includeExisting=true)=>[...(includeExisting?existingItems.map((i:any)=>({menuItem:i.menuItem?._id||i.menuItem,name:i.name,quantity:i.quantity,unitPrice:i.unitPrice,modifiers:i.modifiers||[],notes:i.notes,station:i.station})):[]),...cart.items.map(i=>({menuItem:i.menuItem,name:i.name,quantity:i.quantity,unitPrice:i.unitPrice,modifiers:i.modifiers,notes:i.notes,station:i.station}))];
+  const orderItems=(includeExisting=true)=>[...(includeExisting?existingItems.map((i:any)=>({menuItem:i.menuItem?._id||i.menuItem,name:i.name,quantity:i.quantity,unitPrice:i.unitPrice,modifiers:i.modifiers||[],notes:i.notes,station:i.station,deal:i.deal?._id||i.deal,dealItems:i.dealItems||[]})):[]),...cart.items.map(i=>({menuItem:i.menuItem,name:i.name,quantity:i.quantity,unitPrice:i.unitPrice,modifiers:i.modifiers,notes:i.notes,station:i.station,deal:i.deal,dealItems:i.dealItems||[]}))];
 
-  const payload=(status:string,items=cart.items.map(i=>({menuItem:i.menuItem,name:i.name,quantity:i.quantity,unitPrice:i.unitPrice,modifiers:i.modifiers,notes:i.notes,station:i.station})))=>({type:cart.orderType,table:cart.table?._id,customer:cart.customer?._id,customerName:showCustomerFields&&customerName.trim()?customerName.trim():undefined,customerPhone:showCustomerFields&&customerPhone.trim()?customerPhone.trim():undefined,guests:guestCount,deliveryAddress:needsAddress?deliveryAddress.trim():undefined,rider:needsRider?riderId||undefined:undefined,items,discount:cart.discount,discountType:cart.discountType,tax,serviceCharge:service,notes:paymentNote,status});
+  const payload=(status:string,items=cart.items.map(i=>({menuItem:i.menuItem,name:i.name,quantity:i.quantity,unitPrice:i.unitPrice,modifiers:i.modifiers,notes:i.notes,station:i.station,deal:i.deal,dealItems:i.dealItems||[]})))=>({type:cart.orderType,table:cart.table?._id,customer:cart.customer?._id,customerName:showCustomerFields&&customerName.trim()?customerName.trim():undefined,customerPhone:showCustomerFields&&customerPhone.trim()?customerPhone.trim():undefined,guests:guestCount,deliveryAddress:needsAddress?deliveryAddress.trim():undefined,rider:needsRider?riderId||undefined:undefined,items,discount:cart.discount,discountType:cart.discountType,tax,serviceCharge:service,notes:paymentNote,status});
 
   const clearAfterSend=()=> {
     const table=cart.table;
@@ -226,10 +235,10 @@ export default function POS() {
       </div>
 
       <div className="h-[calc(100vh-21rem)] overflow-y-auto p-5 xl:h-[calc(100vh-21rem)]">
-        <button className="mb-7 flex w-full items-center justify-between text-left">
-          <span className="flex items-center gap-3 text-lg font-black text-white"><ChevronRight size={18}/><BadgePercent size={20}/>Deals & Platters</span>
-          <span className="grid h-7 w-7 place-items-center rounded-full bg-zinc-800 text-sm font-black text-zinc-200">2</span>
-        </button>
+        <div className="mb-7">
+          <div className="mb-3 flex items-center justify-between"><span className="flex items-center gap-3 text-lg font-black text-white"><ChevronRight size={18}/><BadgePercent size={20}/>Deals & Platters</span><span className="grid h-7 min-w-7 place-items-center rounded-full bg-zinc-800 px-2 text-sm font-black text-zinc-200">{deals.filter((deal:any)=>deal.active!==false).length}</span></div>
+          <div className="flex gap-3 overflow-x-auto pb-2">{deals.filter((deal:any)=>deal.active!==false).map((deal:any)=><button key={deal._id} onClick={()=>addDeal(deal)} className="min-w-56 rounded-2xl border border-amber-400/30 bg-amber-400/5 p-4 text-left transition hover:border-amber-300 hover:bg-amber-400/10"><div className="font-black text-white">{deal.name}</div><div className="mt-1 line-clamp-2 text-xs text-zinc-400">{deal.items?.map((item:any)=>`${item.quantity}× ${item.menuItem?.name||'Item'}`).join(' · ')}</div><div className="mt-3 font-black text-amber-200">{money(deal.price)}</div></button>)}{!deals.filter((deal:any)=>deal.active!==false).length&&<p className="text-sm text-zinc-500">No active deals. Create one in Menu → Deals & Promos.</p>}</div>
+        </div>
         <h2 className="mb-3 text-lg font-extrabold text-white">Menu Items</h2>
         <div className="grid auto-rows-max grid-cols-2 gap-4 sm:grid-cols-3 2xl:grid-cols-4">
           {filtered.map((p:any)=>{const count=lineCount(p._id);return <button key={p._id} onClick={()=>add(p)} className="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-[#171719] p-3 text-left transition hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-[#202024]">
@@ -295,7 +304,7 @@ function CartPanel({cart,tables,selectTable,activeTableOrder,deliveryAddress,nee
     </div>
     <div className="flex-1 overflow-y-auto p-4">
       {cart.items.length?<div className="space-y-3">{cart.items.map((i:any)=><div key={i.id} className="rounded-2xl border border-zinc-800 bg-[#171719] p-4">
-        <div className="flex items-start justify-between gap-4"><div><div className="font-black text-white">{i.name}</div><div className="mt-1 font-bold text-white">{money((i.unitPrice+i.modifiers.reduce((a:number,m:any)=>a+m.priceAdjustment,0))*i.quantity)}</div>{i.modifiers.length>0&&<div className="mt-1 text-xs text-zinc-500">{i.modifiers.map((m:any)=>m.label).join(', ')}</div>}{i.notes&&<div className="mt-1 text-xs text-amber-300">{i.notes}</div>}</div><div className="flex items-center gap-3"><button onClick={()=>cart.quantity(i.id,-1)} className="grid h-8 w-8 place-items-center rounded-full border border-zinc-700 text-zinc-300"><Minus size={14}/></button><span className="w-5 text-center font-black text-white">{i.quantity}</span><button onClick={()=>cart.quantity(i.id,1)} className="grid h-8 w-8 place-items-center rounded-full border border-zinc-700 text-zinc-300"><Plus size={14}/></button><button onClick={()=>cart.remove(i.id)} className="text-rose-400"><Trash2 size={16}/></button></div></div>
+        <div className="flex items-start justify-between gap-4"><div><div className="font-black text-white">{i.name}</div><div className="mt-1 font-bold text-white">{money((i.unitPrice+i.modifiers.reduce((a:number,m:any)=>a+m.priceAdjustment,0))*i.quantity)}</div>{i.dealItems?.length>0&&<div className="mt-1 text-xs text-amber-200">Includes: {i.dealItems.map((item:any)=>`${item.quantity}× ${item.name}`).join(', ')}</div>}{i.modifiers.length>0&&<div className="mt-1 text-xs text-zinc-500">{i.modifiers.map((m:any)=>m.label).join(', ')}</div>}{i.notes&&<div className="mt-1 text-xs text-amber-300">{i.notes}</div>}</div><div className="flex items-center gap-3"><button onClick={()=>cart.quantity(i.id,-1)} className="grid h-8 w-8 place-items-center rounded-full border border-zinc-700 text-zinc-300"><Minus size={14}/></button><span className="w-5 text-center font-black text-white">{i.quantity}</span><button onClick={()=>cart.quantity(i.id,1)} className="grid h-8 w-8 place-items-center rounded-full border border-zinc-700 text-zinc-300"><Plus size={14}/></button><button onClick={()=>cart.remove(i.id)} className="text-rose-400"><Trash2 size={16}/></button></div></div>
       </div>)}</div>:!activeTableOrder&&<Empty title={cart.orderType==='dine-in'?'Select a table and add items':'Add items to start'} text=""/>}
     </div>
     <div className="border-t border-zinc-800 p-4">

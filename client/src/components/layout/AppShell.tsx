@@ -1,4 +1,4 @@
-import {NavLink,Outlet,useLocation} from 'react-router-dom';
+import {NavLink,Outlet,useLocation,useSearchParams} from 'react-router-dom';
 import {LayoutDashboard,ShoppingCart,ClipboardList,Armchair,ChefHat,UtensilsCrossed,Boxes,BookOpen,Users,Truck,PackageCheck,Receipt,Landmark,BarChart3,UserCog,Settings,LogOut,Menu,X,Search,CalendarDays,Moon,PanelLeft,Zap} from 'lucide-react';
 import {useMemo,useState} from 'react';
 import {useAuth} from '../../store/auth';
@@ -12,11 +12,13 @@ export function AppShell() {
   const [open,setOpen]=useState(false);
   const {user,logout}=useAuth();
   const location=useLocation();
+  const [searchParams,setSearchParams]=useSearchParams();
   const allowed=restricted[user?.role||'']||items.map(i=>i[1]);
   const current=items.find(i=>i[1]===location.pathname);
   const title=current?.[0]||location.pathname.slice(1).replaceAll('-',' ')||'Dashboard';
   const CurrentIcon=current?.[2]||LayoutDashboard;
   const today=useMemo(()=>new Date().toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short'}),[]);
+  const posDate=searchParams.get('date')||new Date().toISOString().slice(0,10);
   const initials=user?.name?.split(' ').map(x=>x[0]).slice(0,2).join('')||'A';
 
   return <div className="min-h-screen bg-[#0b0b0d] text-zinc-100">
@@ -66,7 +68,7 @@ export function AppShell() {
 
         <div className="flex items-center gap-2">
           <button className="hidden items-center gap-2 rounded-2xl border border-zinc-800 px-4 py-3 text-sm font-bold text-white transition hover:bg-zinc-900 md:inline-flex"><Search size={17}/>Search<span className="rounded-lg bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">Ctrl</span><span className="rounded-lg bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">K</span></button>
-          <button className="hidden items-center gap-2 rounded-2xl border border-zinc-800 px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-zinc-900 sm:inline-flex"><CalendarDays size={17}/>{today}</button>
+          {location.pathname==='/pos'?<label className="hidden items-center gap-2 rounded-2xl border border-zinc-800 px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-zinc-900 sm:inline-flex"><CalendarDays size={17}/><input aria-label="POS order date" type="date" value={posDate} onChange={e=>{const next=new URLSearchParams(searchParams);next.set('date',e.target.value);setSearchParams(next);}} className="w-28 bg-transparent text-zinc-300 outline-none [color-scheme:dark]"/></label>:<button className="hidden items-center gap-2 rounded-2xl border border-zinc-800 px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-zinc-900 sm:inline-flex"><CalendarDays size={17}/>{today}</button>}
           <NotificationBell/>
           <button className="rounded-2xl border border-zinc-800 p-3 text-zinc-300 hover:bg-zinc-900"><Moon size={18}/></button>
         </div>
