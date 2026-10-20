@@ -4,17 +4,20 @@ import {Card,Badge,Button} from '../components/ui';
 import {Banknote,ClipboardList,Armchair,ChefHat,ArrowUpRight,Boxes} from 'lucide-react';
 import {AreaChart,Area,ResponsiveContainer,XAxis,YAxis,Tooltip,CartesianGrid} from 'recharts';
 import {Link} from 'react-router-dom';
+import {useSearchParams} from 'react-router-dom';
 
 const money=(n:number)=>`Rs ${Math.round(n||0).toLocaleString()}`;
 
 export default function Dashboard() {
-  const {data,isLoading}=useQuery({queryKey:['dashboard'],queryFn:()=>api.get('/dashboard').then(r=>r.data.data),refetchInterval:30000});
-  const stats=[['Today sales',money(data?.todaySales),Banknote],['Total orders',data?.totalOrders||0,ClipboardList],['Active tables',data?.activeTables||0,Armchair],['Kitchen queue',data?.pendingKitchen||0,ChefHat]];
+  const [searchParams]=useSearchParams();
+  const selectedDate=searchParams.get('date')||new Date().toISOString().slice(0,10);
+  const {data,isLoading}=useQuery({queryKey:['dashboard',selectedDate],queryFn:()=>api.get('/dashboard',{params:{date:selectedDate}}).then(r=>r.data.data),refetchInterval:30000});
+  const stats=[['Sales',money(data?.todaySales),Banknote],['Completed orders',data?.totalOrders||0,ClipboardList],['Active tables',data?.activeTables||0,Armchair],['Kitchen queue',data?.pendingKitchen||0,ChefHat]];
   return <div className="space-y-7">
     <div className="flex flex-col justify-between gap-4 border-b border-zinc-800 pb-7 sm:flex-row sm:items-end">
       <div>
         <h2 className="text-3xl font-extrabold text-white">Dashboard</h2>
-        <p className="mt-2 text-zinc-400">Live sales, tables, kitchen load, and inventory attention points.</p>
+        <p className="mt-2 text-zinc-400">Sales, orders, and revenue for {selectedDate}; live tables and kitchen load.</p>
       </div>
       <div className="flex gap-2">
         <Link to="/menu"><Button variant="secondary">Add menu item</Button></Link>
