@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
-import {Search,Plus,MoreHorizontal,Download,AlertTriangle,RefreshCcw} from 'lucide-react';
+import {Search,Plus,MoreHorizontal,Download,AlertTriangle,RefreshCcw,Trash2} from 'lucide-react';
 import {api,messageOf} from '../services/api';
 import {Badge,Button,Card,Empty,Field,Modal} from '../components/ui';
 import {useToast} from '../store/toast';
@@ -14,16 +14,18 @@ const configs:any={
   suppliers:{subtitle:'Vendor contacts, purchases and balances.',cols:['name','contact','email','outstandingBalance'],fields:[['name','Name'],['contact','Contact'],['email','Email'],['address','Address']]},
   purchases:{subtitle:'Purchase orders, receiving and payments.',cols:['number','supplier','total','paymentStatus','received'],fields:[['number','PO number'],['total','Total','number'],['paymentStatus','Payment status']]},
   expenses:{subtitle:'Record custom operating expenses and their costs.',cols:['name','date','amount','paymentMethod','note'],fields:[['name','Expense name'],['date','Date','date'],['amount','Cost','number'],['paymentMethod','Payment method'],['note','Note']]},
-  staff:{subtitle:'Team members, roles, branches and performance.',cols:['name','email','phone','role','status'],fields:[['name','Name'],['email','Email'],['phone','Phone'],['role','Role'],['status','Status'],['password','Password','password']]}
+  investments:{subtitle:'Record startup and later investment costs. ROI is calculated from actual sales, purchases and expenses.',cols:['name','date','amount','note'],fields:[['name','Investment item'],['date','Date','date'],['amount','Amount','number'],['note','Note']]},
+  staff:{subtitle:'Team members, roles, salary and performance.',cols:['name','email','phone','role','salary','status'],fields:[['name','Name'],['email','Email'],['phone','Phone'],['role','Role'],['salary','Monthly salary','number'],['status','Status'],['password','Password','password']]}
 };
 
-const moneyKeys=['price','cost','amount','total','costPrice','totalSpent','outstandingBalance'];
+const moneyKeys=['price','cost','amount','total','costPrice','totalSpent','outstandingBalance','salary'];
 const roleOptions=['owner','manager','cashier','waiter','kitchen','rider','accountant','viewer'];
 const statusOptions=['active','inactive'];
 const display=(v:any,key:string)=>{if(v==null)return '-';if(Array.isArray(v))return `${v.length} items`;if(typeof v==='object')return v.name||v.label||'-';if(key.toLowerCase().includes('date'))return new Date(v).toLocaleDateString();if(moneyKeys.includes(key))return `Rs ${Number(v).toLocaleString()}`;return String(v);};
 
 export default function ResourcePage({endpoint,title}:{endpoint:string;title:string}) {
   if(endpoint==='reports/accounting')return <Accounting/>;
+  if(endpoint==='investments')return <Investment/>;
   const cfg=configs[endpoint]||{subtitle:'Manage your restaurant records.',cols:['name'],fields:[['name','Name']]};
   const [search,setSearch]=useState('');
   const [exportFormat,setExportFormat]=useState<ExportFormat>('xlsx');
@@ -32,6 +34,7 @@ export default function ResourcePage({endpoint,title}:{endpoint:string;title:str
   const {data,isLoading}=useQuery({queryKey:[endpoint,search],queryFn:()=>api.get(`/${endpoint}`,{params:{search,limit:100}}).then(r=>r.data)});
   const rows=data?.data||[];
   const save=async(e:any)=>{e.preventDefault();const body:any=Object.fromEntries(new FormData(e.currentTarget));cfg.fields.forEach((f:any)=>{if(f[2]==='number')body[f[0]]=Number(body[f[0]]);});if(body.password==='')delete body.password;try{if(edit?._id)await api.patch(`/${endpoint}/${edit._id}`,body);else await api.post(`/${endpoint}`,body);toast.push(`${title.replace(/s$/,'')} saved`);setEdit(null);qc.invalidateQueries({queryKey:[endpoint]});}catch(e){toast.push(messageOf(e),'error');}};
+  const remove=async(row:any)=>{if(!window.confirm(`Remove ${row.name}?`))return;try{await api.delete(`/${endpoint}/${row._id}`);toast.push(`${row.name} removed`);qc.invalidateQueries({queryKey:[endpoint]});}catch(e){toast.push(messageOf(e),'error');}};
 
   const lowStock=endpoint==='inventory'?rows.filter((x:any)=>x.currentStock<=x.minimumStock).length:0;
   const stockValue=endpoint==='inventory'?rows.reduce((sum:number,x:any)=>sum+(Number(x.currentStock)||0)*(Number(x.costPrice)||0),0):0;
@@ -66,7 +69,7 @@ export default function ResourcePage({endpoint,title}:{endpoint:string;title:str
     </div>
 
     <Card className="overflow-hidden">
-      <div className="overflow-x-auto"><table><thead><tr>{cfg.cols.map((c:string)=><th key={c}>{c.replace(/([A-Z])/g,' $1')}</th>)}<th>Actions</th></tr></thead><tbody>{rows.map((row:any)=><tr key={row._id}>{cfg.cols.map((c:string)=><td key={c}>{c==='status'||c==='paymentStatus'||typeof row[c]==='boolean'?<Badge>{display(row[c],c)}</Badge>:c==='currentStock'&&row.currentStock<=row.minimumStock?<span className="flex items-center gap-1 font-semibold text-rose-300"><AlertTriangle size={15}/>{display(row[c],c)}</span>:display(row[c],c)}</td>)}<td><button onClick={()=>setEdit(row)} className="rounded-lg p-2 text-zinc-300 hover:bg-zinc-800 hover:text-white"><MoreHorizontal size={18}/></button></td></tr>)}</tbody></table>{!isLoading&&!rows.length&&<Empty title={`No ${title.toLowerCase()} found`}/>}</div>
+      <div className="overflow-x-auto"><table><thead><tr>{cfg.cols.map((c:string)=><th key={c}>{c.replace(/([A-Z])/g,' $1')}</th>)}<th>Actions</th></tr></thead><tbody>{rows.map((row:any)=><tr key={row._id}>{cfg.cols.map((c:string)=><td key={c}>{c==='status'||c==='paymentStatus'||typeof row[c]==='boolean'?<Badge>{display(row[c],c)}</Badge>:c==='currentStock'&&row.currentStock<=row.minimumStock?<span className="flex items-center gap-1 font-semibold text-rose-300"><AlertTriangle size={15}/>{display(row[c],c)}</span>:display(row[c],c)}</td>)}<td><div className="flex"><button onClick={()=>setEdit(row)} className="rounded-lg p-2 text-zinc-300 hover:bg-zinc-800 hover:text-white"><MoreHorizontal size={18}/></button>{endpoint==='staff'&&<button aria-label={`Remove ${row.name}`} onClick={()=>remove(row)} className="rounded-lg p-2 text-rose-300 hover:bg-rose-500/10"><Trash2 size={17}/></button>}</div></td></tr>)}</tbody></table>{!isLoading&&!rows.length&&<Empty title={`No ${title.toLowerCase()} found`}/>}</div>
     </Card>
 
     <Modal open={!!edit} onClose={()=>setEdit(null)} title={`${edit?._id?'Edit':'Add'} ${title.replace(/s$/,'')}`}>
@@ -95,10 +98,29 @@ function ResourceField({name,label,type,value,required}:any) {
 }
 
 function Accounting() {
+  const qc=useQueryClient(),toast=useToast();
   const {data}=useQuery({queryKey:['accounting'],queryFn:()=>api.get('/reports/accounting').then(r=>r.data.data)});
+  const {data:session,isLoading}=useQuery({queryKey:['cash-session'],queryFn:()=>api.get('/cash-sessions/current').then(r=>r.data.data)});
+  const [openingCash,setOpeningCash]=useState('');const [closingCash,setClosingCash]=useState('');const [saving,setSaving]=useState(false);
+  const open=async()=>{try{setSaving(true);await api.post('/cash-sessions',{openingCash:Number(openingCash||0)});setOpeningCash('');toast.push('Cash session opened');qc.invalidateQueries({queryKey:['cash-session']});}catch(e){toast.push(messageOf(e),'error');}finally{setSaving(false)}};
+  const close=async()=>{try{setSaving(true);const {data}=await api.post(`/cash-sessions/${session._id}/close`,{closingCash:Number(closingCash||0)});toast.push(`Session closed. Difference: Rs ${Math.round(data.data.difference||0).toLocaleString()}`);setClosingCash('');qc.invalidateQueries({queryKey:['cash-session']});}catch(e){toast.push(messageOf(e),'error');}finally{setSaving(false)}};
   return <div className="space-y-7">
     <div className="border-b border-zinc-800 pb-7"><h2 className="text-3xl font-extrabold text-white">Accounting</h2><p className="mt-2 text-zinc-400">A concise view of money in, money out and profit.</p></div>
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">{Object.entries(data||{}).map(([k,v]:any)=><Card className="p-5" key={k}><div className="text-sm capitalize text-zinc-500">{k.replace(/([A-Z])/g,' $1')}</div><div className={`mt-2 text-2xl font-black ${k==='netProfit'?'text-emerald-300':'text-white'}`}>Rs {Math.round(v).toLocaleString()}</div></Card>)}</div>
-    <Card className="p-6"><h3 className="font-extrabold text-white">Cash session</h3><p className="mt-1 text-sm text-zinc-500">Open a shift to track cash movements and reconcile the drawer.</p><div className="mt-5 flex max-w-xl gap-3"><Field label="Opening cash" type="number" placeholder="0"/><Button className="mt-6">Open session</Button></div></Card>
+    <Card className="p-6"><h3 className="font-extrabold text-white">Cash session</h3><p className="mt-1 text-sm text-zinc-500">Tracks cash payments from POS and cash expenses from the moment the shift opens.</p>{!isLoading&&!session?<div className="mt-5 flex max-w-xl gap-3"><label className="flex-1 text-sm font-medium text-zinc-300">Opening cash<input value={openingCash} onChange={e=>setOpeningCash(e.target.value)} type="number" min="0" placeholder="0" className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-zinc-100"/></label><Button loading={saving} className="mt-6" onClick={open}>Open session</Button></div>:null}{session&&<div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Opening cash" value={`Rs ${Number(session.openingCash||0).toLocaleString()}`}/><Metric label="Cash sales" value={`Rs ${Number(session.cashSales||0).toLocaleString()}`}/><Metric label="Cash expenses" value={`Rs ${Number(session.cashExpenses||0).toLocaleString()}`}/><Metric label="Expected drawer" value={`Rs ${Number(session.expectedCash||0).toLocaleString()}`}/><div className="xl:col-span-4 flex flex-wrap items-end gap-3 border-t border-zinc-800 pt-4"><label className="w-full max-w-xs text-sm font-medium text-zinc-300">Counted closing cash<input value={closingCash} onChange={e=>setClosingCash(e.target.value)} type="number" min="0" placeholder="0" className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-zinc-100"/></label><Button loading={saving} onClick={close}>Close & reconcile</Button></div></div>}</Card>
+  </div>;
+}
+
+function Investment(){
+  const qc=useQueryClient(),toast=useToast();
+  const [edit,setEdit]=useState<any>(null);
+  const {data:summary={}}=useQuery({queryKey:['investment-summary'],queryFn:()=>api.get('/reports/investment').then(r=>r.data.data)});
+  const {data:rows=[]}=useQuery({queryKey:['investments'],queryFn:()=>api.get('/investments',{params:{limit:100}}).then(r=>r.data.data)});
+  const save=async(e:any)=>{e.preventDefault();const body:any=Object.fromEntries(new FormData(e.currentTarget));body.amount=Number(body.amount);try{if(edit?._id)await api.patch(`/investments/${edit._id}`,body);else await api.post('/investments',body);setEdit(null);qc.invalidateQueries({queryKey:['investments']});qc.invalidateQueries({queryKey:['investment-summary']});toast.push('Investment saved');}catch(error){toast.push(messageOf(error),'error')}};
+  return <div className="space-y-7">
+    <div className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800 pb-7"><div><h2 className="text-3xl font-extrabold text-white">Investment & ROI</h2><p className="mt-2 text-zinc-400">Measure recovery of your startup capital from live business results.</p></div><Button onClick={()=>setEdit({})}><Plus size={17}/>Add investment</Button></div>
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Total investment" value={`Rs ${Math.round(summary.totalInvestment||0).toLocaleString()}`}/><Metric label="Net profit" value={`Rs ${Math.round(summary.netProfit||0).toLocaleString()}`}/><Metric label="ROI" value={`${Number(summary.roi||0).toFixed(1)}%`}/><Metric label="Still to recover" value={`Rs ${Math.round(summary.remainingToRecover||0).toLocaleString()}`}/></div>
+    <Card className="overflow-hidden"><div className="overflow-x-auto"><table><thead><tr><th>Item</th><th>Date</th><th>Amount</th><th>Note</th></tr></thead><tbody>{rows.map((row:any)=><tr key={row._id}><td className="font-semibold">{row.name}</td><td>{display(row.date,'date')}</td><td>{display(row.amount,'amount')}</td><td>{row.note||'-'}</td></tr>)}</tbody></table>{!rows.length&&<Empty title="No investments recorded" text="Add your startup costs to start measuring ROI."/>}</div></Card>
+    <Modal open={!!edit} onClose={()=>setEdit(null)} title="Add investment"><form onSubmit={save} className="space-y-4 p-5"><Field name="name" label="Investment item" defaultValue={edit?.name} required/><Field name="date" label="Date" type="date" defaultValue={edit?.date?.slice?.(0,10)}/><Field name="amount" label="Amount" type="number" defaultValue={edit?.amount} required/><Field name="note" label="Note" defaultValue={edit?.note}/><Button className="w-full">Save investment</Button></form></Modal>
   </div>;
 }
