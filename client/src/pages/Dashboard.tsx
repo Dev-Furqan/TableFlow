@@ -12,7 +12,16 @@ export default function Dashboard() {
   const [searchParams]=useSearchParams();
   const selectedDate=searchParams.get('date')||new Date().toISOString().slice(0,10);
   const {data,isLoading}=useQuery({queryKey:['dashboard',selectedDate],queryFn:()=>api.get('/dashboard',{params:{date:selectedDate}}).then(r=>r.data.data),refetchInterval:30000});
-  const stats=[['Sales',money(data?.todaySales),Banknote],['Expenses',money(data?.expenses),ReceiptText],['Net sales',money(data?.netSales),WalletCards],['Completed orders',data?.totalOrders||0,ClipboardList],['Active tables',data?.activeTables||0,Armchair],['Kitchen queue',data?.pendingKitchen||0,ChefHat]];
+  const {data:ordersData}=useQuery({queryKey:['dashboard-orders',selectedDate],queryFn:()=>api.get('/orders',{params:{date:selectedDate,limit:100}}).then(r=>r.data)});
+  const {data:expensesData=[]}=useQuery({queryKey:['dashboard-expenses'],queryFn:()=>api.get('/expenses',{params:{limit:100}}).then(r=>r.data.data).catch(()=>[])});
+  const completedOrders=(ordersData?.data||[]).filter((order:any)=>order.status==='completed');
+  const completedSales=completedOrders.reduce((sum:number,order:any)=>sum+Number(order.total||0),0);
+  const dailyExpenses=expensesData.filter((expense:any)=>new Date(expense.date).toLocaleDateString('en-CA',{timeZone:'Asia/Karachi'})===selectedDate).reduce((sum:number,expense:any)=>sum+Number(expense.amount||0),0);
+  const dashboardSales=completedOrders.length?completedSales:Number(data?.todaySales||0);
+  const dashboardOrders=completedOrders.length?completedOrders.length:Number(data?.totalOrders||0);
+  const dashboardExpenses=dailyExpenses||Number(data?.expenses||0);
+  const dashboardNet=dashboardSales-dashboardExpenses;
+  const stats=[['Sales',money(dashboardSales),Banknote],['Expenses',money(dashboardExpenses),ReceiptText],['Net sales',money(dashboardNet),WalletCards],['Completed orders',dashboardOrders,ClipboardList],['Active tables',data?.activeTables||0,Armchair],['Kitchen queue',data?.pendingKitchen||0,ChefHat]];
   return <div className="space-y-7">
     <div className="flex flex-col justify-between gap-4 border-b border-zinc-800 pb-7 sm:flex-row sm:items-end">
       <div>
