@@ -1,7 +1,7 @@
 import {useQuery} from '@tanstack/react-query';
 import {api} from '../services/api';
 import {Card,Badge,Button} from '../components/ui';
-import {Banknote,ClipboardList,Armchair,ChefHat,ArrowUpRight,Boxes} from 'lucide-react';
+import {Banknote,ClipboardList,Armchair,ChefHat,ArrowUpRight,Boxes,WalletCards,ReceiptText} from 'lucide-react';
 import {AreaChart,Area,ResponsiveContainer,XAxis,YAxis,Tooltip,CartesianGrid} from 'recharts';
 import {Link} from 'react-router-dom';
 import {useSearchParams} from 'react-router-dom';
@@ -12,7 +12,7 @@ export default function Dashboard() {
   const [searchParams]=useSearchParams();
   const selectedDate=searchParams.get('date')||new Date().toISOString().slice(0,10);
   const {data,isLoading}=useQuery({queryKey:['dashboard',selectedDate],queryFn:()=>api.get('/dashboard',{params:{date:selectedDate}}).then(r=>r.data.data),refetchInterval:30000});
-  const stats=[['Sales',money(data?.todaySales),Banknote],['Completed orders',data?.totalOrders||0,ClipboardList],['Active tables',data?.activeTables||0,Armchair],['Kitchen queue',data?.pendingKitchen||0,ChefHat]];
+  const stats=[['Sales',money(data?.todaySales),Banknote],['Expenses',money(data?.expenses),ReceiptText],['Net sales',money(data?.netSales),WalletCards],['Completed orders',data?.totalOrders||0,ClipboardList],['Active tables',data?.activeTables||0,Armchair],['Kitchen queue',data?.pendingKitchen||0,ChefHat]];
   return <div className="space-y-7">
     <div className="flex flex-col justify-between gap-4 border-b border-zinc-800 pb-7 sm:flex-row sm:items-end">
       <div>
@@ -25,7 +25,7 @@ export default function Dashboard() {
       </div>
     </div>
 
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {stats.map(([label,value,Icon]:any)=><Card key={label} className="p-6">
         <div className="flex items-start justify-between">
           <span className="grid h-12 w-12 place-items-center rounded-2xl bg-zinc-800 text-zinc-300"><Icon size={22}/></span>
