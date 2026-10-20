@@ -7,6 +7,7 @@ import {useSocket} from '../hooks/useSocket';
 import {useToast} from '../store/toast';
 import {Receipt,printReceipt} from '../components/receipt/Receipt';
 import type {Order} from '../types';
+import {useSearchParams} from 'react-router-dom';
 
 const money=(n:number)=>`Rs ${Math.round(n||0).toLocaleString()}`;
 const paymentLabel=(value:string)=>value.replaceAll('-',' ').replace(/\b\w/g,letter=>letter.toUpperCase());
@@ -25,12 +26,13 @@ export default function Orders() {
   const [status,setStatus]=useState('');
   const [selected,setSelected]=useState<Order|null>(null);
   const [salesSlipOpen,setSalesSlipOpen]=useState(false);
-  const [salesDate,setSalesDate]=useState(new Date().toISOString().slice(0,10));
+  const [searchParams,setSearchParams]=useSearchParams();
+  const selectedDate=searchParams.get('date')||new Date().toISOString().slice(0,10);
   const qc=useQueryClient(),toast=useToast();
-  const {data,isLoading}=useQuery({queryKey:['orders',search,status],queryFn:()=>api.get('/orders',{params:{search,status,limit:100}}).then(r=>r.data)});
+  const {data,isLoading}=useQuery({queryKey:['orders',search,status,selectedDate],queryFn:()=>api.get('/orders',{params:{search,status,date:selectedDate,limit:100}}).then(r=>r.data)});
   const {data:staff=[]}=useQuery({queryKey:['staff-riders'],queryFn:()=>api.get('/staff?limit=100').then(r=>r.data.data)});
   const {data:settings=[]}=useQuery({queryKey:['settings'],queryFn:()=>api.get('/settings?limit=100').then(r=>r.data.data).catch(()=>[])});
-  const {data:dailySales,isLoading:loadingDailySales}=useQuery({queryKey:['daily-sales',salesDate],queryFn:()=>api.get('/reports/daily-sales',{params:{date:salesDate}}).then(r=>r.data.data),enabled:salesSlipOpen});
+  const {data:dailySales,isLoading:loadingDailySales}=useQuery({queryKey:['daily-sales',selectedDate],queryFn:()=>api.get('/reports/daily-sales',{params:{date:selectedDate}}).then(r=>r.data.data),enabled:salesSlipOpen});
   useSocket({'order:created':()=>qc.invalidateQueries({queryKey:['orders']}),'order:updated':()=>qc.invalidateQueries({queryKey:['orders']}),'order:completed':()=>qc.invalidateQueries({queryKey:['orders']}),'order:deleted':()=>qc.invalidateQueries({queryKey:['orders']})});
   const rows=data?.data||[];
   const busyRiderIds=new Set(rows.filter((o:Order)=>o.type==='delivery'&&!['completed','cancelled','refunded'].includes(o.status)&&String(o._id)!==String(selected?._id)).map((o:Order)=>String(o.rider?._id||o.rider)).filter(Boolean));
@@ -93,7 +95,7 @@ export default function Orders() {
       </div>}
     </Modal>
     <Modal open={salesSlipOpen} onClose={()=>setSalesSlipOpen(false)} title="Daily sales receipt" className="max-w-md">
-      <div className="space-y-5 p-5"><label className="block text-sm font-bold text-zinc-200">Sales date<input type="date" value={salesDate} onChange={event=>setSalesDate(event.target.value)} className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-zinc-100 [color-scheme:dark]"/></label><div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4"><div className="text-sm text-zinc-500">Completed orders: <span className="font-bold text-zinc-200">{dailySales?.orders||0}</span></div><div className="mt-2 text-xs font-bold uppercase tracking-wide text-zinc-500">Net sales</div><div className="mt-1 text-3xl font-black text-white">{money(dailySales?.sales||0)}</div>{dailySales?.payments?.length>0&&<div className="mt-4 border-t border-zinc-800 pt-3 text-sm text-zinc-400">{dailySales.payments.map((payment:any)=><div key={payment.method} className="flex justify-between py-1"><span className="capitalize">{paymentLabel(payment.method)}</span><span>{money(payment.amount)}</span></div>)}</div>}</div><div className="flex justify-end gap-2"><Button variant="secondary" onClick={()=>setSalesSlipOpen(false)}>Close</Button><Button disabled={!dailySales||loadingDailySales} onClick={()=>printDailySalesSlip(dailySales,restaurantProfile)}><Printer size={16}/>Print receipt</Button></div></div>
+      <div className="space-y-5 p-5"><label className="block text-sm font-bold text-zinc-200">Sales date<input type="date" value={selectedDate} onChange={event=>{const next=new URLSearchParams(searchParams);next.set('date',event.target.value);setSearchParams(next);}} className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-zinc-100 [color-scheme:dark]"/></label><div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4"><div className="text-sm text-zinc-500">Orders for this date: <span className="font-bold text-zinc-200">{dailySales?.orders||0}</span></div><div className="mt-2 text-xs font-bold uppercase tracking-wide text-zinc-500">Order total</div><div className="mt-1 text-3xl font-black text-white">{money(dailySales?.sales||0)}</div>{dailySales?.payments?.length>0&&<div className="mt-4 border-t border-zinc-800 pt-3 text-sm text-zinc-400">{dailySales.payments.map((payment:any)=><div key={payment.method} className="flex justify-between py-1"><span className="capitalize">{paymentLabel(payment.method)}</span><span>{money(payment.amount)}</span></div>)}</div>}</div><div className="flex justify-end gap-2"><Button variant="secondary" onClick={()=>setSalesSlipOpen(false)}>Close</Button><Button disabled={!dailySales||loadingDailySales} onClick={()=>printDailySalesSlip(dailySales,restaurantProfile)}><Printer size={16}/>Print receipt</Button></div></div>
     </Modal>
   </div>;
 }

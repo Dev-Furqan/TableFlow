@@ -18,7 +18,7 @@ export function AppShell() {
   const title=current?.[0]||location.pathname.slice(1).replaceAll('-',' ')||'Dashboard';
   const CurrentIcon=current?.[2]||LayoutDashboard;
   const today=useMemo(()=>new Date().toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short'}),[]);
-  const posDate=searchParams.get('date')||new Date().toISOString().slice(0,10);
+  const selectedDate=searchParams.get('date')||new Date().toISOString().slice(0,10);
   const initials=user?.name?.split(' ').map(x=>x[0]).slice(0,2).join('')||'A';
 
   return <div className="min-h-screen bg-[#0b0b0d] text-zinc-100">
@@ -68,7 +68,7 @@ export function AppShell() {
 
         <div className="flex items-center gap-2">
           <button className="hidden items-center gap-2 rounded-2xl border border-zinc-800 px-4 py-3 text-sm font-bold text-white transition hover:bg-zinc-900 md:inline-flex"><Search size={17}/>Search<span className="rounded-lg bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">Ctrl</span><span className="rounded-lg bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">K</span></button>
-          {location.pathname==='/pos'?<label className="hidden items-center gap-2 rounded-2xl border border-zinc-800 px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-zinc-900 sm:inline-flex"><CalendarDays size={17}/><input aria-label="POS order date" type="date" value={posDate} onChange={e=>{const next=new URLSearchParams(searchParams);next.set('date',e.target.value);setSearchParams(next);}} className="w-28 bg-transparent text-zinc-300 outline-none [color-scheme:dark]"/></label>:<button className="hidden items-center gap-2 rounded-2xl border border-zinc-800 px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-zinc-900 sm:inline-flex"><CalendarDays size={17}/>{today}</button>}
+          {['/pos','/orders'].includes(location.pathname)?<label className="hidden items-center gap-2 rounded-2xl border border-zinc-800 px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-zinc-900 sm:inline-flex"><CalendarDays size={17}/><input aria-label="Order date" type="date" value={selectedDate} onChange={e=>{const next=new URLSearchParams(searchParams);next.set('date',e.target.value);setSearchParams(next);}} className="w-28 bg-transparent text-zinc-300 outline-none [color-scheme:dark]"/></label>:<button className="hidden items-center gap-2 rounded-2xl border border-zinc-800 px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-zinc-900 sm:inline-flex"><CalendarDays size={17}/>{today}</button>}
           <NotificationBell/>
           <button className="rounded-2xl border border-zinc-800 p-3 text-zinc-300 hover:bg-zinc-900"><Moon size={18}/></button>
         </div>

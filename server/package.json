@@ -11,6 +11,7 @@
     "start": "node dist/server.js",
     "seed": "tsx src/seed/index.ts",
     "provision:burger-inn": "tsx src/scripts/provision-restaurant.ts",
+    "provision:demo": "tsx src/scripts/provision-demo-restaurant.ts",
     "integration:backfill-ids": "tsx src/scripts/backfill-integration-ids.ts",
     "integration:worker": "tsx src/integration/worker.ts",
     "test": "vitest run"
