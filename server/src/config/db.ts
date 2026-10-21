@@ -23,6 +23,17 @@ export const connectDb = async () => {
           if (error?.code !== 26 && error?.code !== 27) throw error;
         }
         await settings.createIndex({restaurant:1,key:1},{name:'restaurant_1_key_1',unique:true});
+        // Earlier versions made order numbers globally unique. Order numbers are
+        // restaurant-scoped, and the old index prevents different restaurants
+        // from using the same daily sequence.
+        const orders = connection.connection.collection('orders');
+        try {
+          await orders.dropIndex('orderNumber_1');
+          console.log('Removed legacy global order number index');
+        } catch (error: any) {
+          if (error?.code !== 26 && error?.code !== 27) throw error;
+        }
+        await orders.createIndex({restaurant:1,orderNumber:1},{name:'restaurant_1_orderNumber_1',unique:true});
         console.log('MongoDB connected');
         return connection;
       })
