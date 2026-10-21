@@ -4,6 +4,7 @@ import {Search,Plus,MoreHorizontal,Download,AlertTriangle,RefreshCcw,Trash2} fro
 import {api,messageOf} from '../services/api';
 import {Badge,Button,Card,Empty,Field,Modal} from '../components/ui';
 import {useToast} from '../store/toast';
+import {useAuth} from '../store/auth';
 import {downloadTable,type ExportFormat} from '../utils/export';
 
 const configs:any={
@@ -31,10 +32,11 @@ export default function ResourcePage({endpoint,title}:{endpoint:string;title:str
   const [exportFormat,setExportFormat]=useState<ExportFormat>('xlsx');
   const [edit,setEdit]=useState<any>(null);
   const qc=useQueryClient(),toast=useToast();
+  const user=useAuth(s=>s.user);
   const {data,isLoading}=useQuery({queryKey:[endpoint,search],queryFn:()=>api.get(`/${endpoint}`,{params:{search,limit:100}}).then(r=>r.data)});
   const rows=data?.data||[];
   const save=async(e:any)=>{e.preventDefault();const body:any=Object.fromEntries(new FormData(e.currentTarget));cfg.fields.forEach((f:any)=>{if(f[2]==='number')body[f[0]]=Number(body[f[0]]);});if(body.password==='')delete body.password;try{if(edit?._id)await api.patch(`/${endpoint}/${edit._id}`,body);else await api.post(`/${endpoint}`,body);toast.push(`${title.replace(/s$/,'')} saved`);setEdit(null);qc.invalidateQueries({queryKey:[endpoint]});}catch(e){toast.push(messageOf(e),'error');}};
-  const remove=async(row:any)=>{if(!window.confirm(`Remove ${row.name}?`))return;try{await api.delete(`/${endpoint}/${row._id}`);toast.push(`${row.name} removed`);qc.invalidateQueries({queryKey:[endpoint]});}catch(e){toast.push(messageOf(e),'error');}};
+  const remove=async(row:any)=>{const label=endpoint==='expenses'?'expense':'staff member';if(!window.confirm(`Delete ${label} "${row.name}"? This cannot be undone.`))return;try{await api.delete(`/${endpoint}/${row._id}`);toast.push(`${row.name} deleted`);qc.invalidateQueries({queryKey:[endpoint]});}catch(e){toast.push(messageOf(e),'error');}};
 
   const lowStock=endpoint==='inventory'?rows.filter((x:any)=>x.currentStock<=x.minimumStock).length:0;
   const stockValue=endpoint==='inventory'?rows.reduce((sum:number,x:any)=>sum+(Number(x.currentStock)||0)*(Number(x.costPrice)||0),0):0;
@@ -69,7 +71,7 @@ export default function ResourcePage({endpoint,title}:{endpoint:string;title:str
     </div>
 
     <Card className="overflow-hidden">
-      <div className="overflow-x-auto"><table><thead><tr>{cfg.cols.map((c:string)=><th key={c}>{c.replace(/([A-Z])/g,' $1')}</th>)}<th>Actions</th></tr></thead><tbody>{rows.map((row:any)=><tr key={row._id}>{cfg.cols.map((c:string)=><td key={c}>{c==='status'||c==='paymentStatus'||typeof row[c]==='boolean'?<Badge>{display(row[c],c)}</Badge>:c==='currentStock'&&row.currentStock<=row.minimumStock?<span className="flex items-center gap-1 font-semibold text-rose-300"><AlertTriangle size={15}/>{display(row[c],c)}</span>:display(row[c],c)}</td>)}<td><div className="flex"><button onClick={()=>setEdit(row)} className="rounded-lg p-2 text-zinc-300 hover:bg-zinc-800 hover:text-white"><MoreHorizontal size={18}/></button>{endpoint==='staff'&&<button aria-label={`Remove ${row.name}`} onClick={()=>remove(row)} className="rounded-lg p-2 text-rose-300 hover:bg-rose-500/10"><Trash2 size={17}/></button>}</div></td></tr>)}</tbody></table>{!isLoading&&!rows.length&&<Empty title={`No ${title.toLowerCase()} found`}/>}</div>
+      <div className="overflow-x-auto"><table><thead><tr>{cfg.cols.map((c:string)=><th key={c}>{c.replace(/([A-Z])/g,' $1')}</th>)}<th>Actions</th></tr></thead><tbody>{rows.map((row:any)=><tr key={row._id}>{cfg.cols.map((c:string)=><td key={c}>{c==='status'||c==='paymentStatus'||typeof row[c]==='boolean'?<Badge>{display(row[c],c)}</Badge>:c==='currentStock'&&row.currentStock<=row.minimumStock?<span className="flex items-center gap-1 font-semibold text-rose-300"><AlertTriangle size={15}/>{display(row[c],c)}</span>:display(row[c],c)}</td>)}<td><div className="flex"><button onClick={()=>setEdit(row)} className="rounded-lg p-2 text-zinc-300 hover:bg-zinc-800 hover:text-white"><MoreHorizontal size={18}/></button>{(endpoint==='staff'||(endpoint==='expenses'&&['owner','manager','accountant'].includes(user?.role||'')))&&<button aria-label={`Delete ${row.name}`} onClick={()=>remove(row)} className="rounded-lg p-2 text-rose-300 hover:bg-rose-500/10"><Trash2 size={17}/></button>}</div></td></tr>)}</tbody></table>{!isLoading&&!rows.length&&<Empty title={`No ${title.toLowerCase()} found`}/>}</div>
     </Card>
 
     <Modal open={!!edit} onClose={()=>setEdit(null)} title={`${edit?._id?'Edit':'Add'} ${title.replace(/s$/,'')}`}>
