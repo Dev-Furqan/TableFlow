@@ -1,4 +1,6 @@
-import express from 'express';import cors from 'cors';import { default as helmet } from 'helmet';import cookieParser from 'cookie-parser';import morgan from 'morgan';import {api} from './routes/index.js';import {env} from './config/env.js';import {errorHandler,notFound} from './middleware/error.js';import {parseAllowedOrigins,isOriginAllowed} from './utils/origins.js';import {connectDb} from './config/db.js';
+import express from 'express';import cors from 'cors';import * as helmetModule from 'helmet';import cookieParser from 'cookie-parser';import morgan from 'morgan';import {api} from './routes/index.js';import {env} from './config/env.js';import {errorHandler,notFound} from './middleware/error.js';import {parseAllowedOrigins,isOriginAllowed} from './utils/origins.js';import {connectDb} from './config/db.js';
+
+const helmet = helmetModule.default;
 
 export const allowedOrigins=parseAllowedOrigins(env.CLIENT_URL);
 const isClientUrlDefault = env.CLIENT_URL==='http://localhost:5173';
