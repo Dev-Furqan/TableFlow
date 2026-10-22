@@ -84,3 +84,16 @@ See [Orange Restaurant Website integration](docs/orange-website-integration.md) 
 ## Production checklist
 
 Use strong secrets, HTTPS, an Atlas/replica-set MongoDB deployment, secure CORS origins, backups, observability, a persistent upload store, and tests around local tax/fiscal requirements. Run the client behind a static host/CDN and the API behind a process manager or container platform.
+
+### Deploy the API to Vercel
+
+Import this repository into a new Vercel project with the repository root as its Root Directory. The committed `vercel.json` installs from the lockfile and builds only the backend workspace. Before deploying, add these Production environment variables in **Settings → Environment Variables**:
+
+```text
+MONGODB_URI=<MongoDB Atlas connection string>
+JWT_ACCESS_SECRET=<at least 16 random characters>
+JWT_REFRESH_SECRET=<at least 16 random characters>
+CLIENT_URL=<exact HTTPS URL of the deployed frontend>
+```
+
+`GET /health` is the deployment health check. Vercel serverless functions support the REST API but not persistent Socket.IO connections; host the real-time Socket.IO server on a persistent Node.js service if live order updates are required.

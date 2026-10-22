@@ -1,8 +1,7 @@
-import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-export type ExportFormat = 'xlsx'|'pdf';
+export type ExportFormat = 'csv'|'pdf';
 export type ExportColumn = {key:string; label:string; value?:(row:any)=>unknown};
 
 const cleanFileName=(value:string)=>value.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')||'export';
@@ -17,17 +16,26 @@ const printable=(value:unknown):string=>{
   return String(value);
 };
 
+const csvCell=(value:string)=>`"${value.replaceAll('"','""')}"`;
+
+const downloadCsv=(headers:string[],values:string[][],fileName:string)=>{
+  const csv=[headers,...values].map(row=>row.map(csvCell).join(',')).join('\r\n');
+  const blob=new Blob([`\uFEFF${csv}`],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  link.href=url;
+  link.download=`${fileName}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
 export function downloadTable({title,columns,rows,format}:{title:string;columns:ExportColumn[];rows:any[];format:ExportFormat}) {
   const fileName=`${cleanFileName(title)}-${new Date().toISOString().slice(0,10)}`;
   const values=rows.map(row=>columns.map(column=>printable(column.value?column.value(row):row[column.key])));
   const headers=columns.map(column=>column.label);
 
-  if(format==='xlsx') {
-    const worksheet=XLSX.utils.aoa_to_sheet([headers,...values]);
-    worksheet['!cols']=headers.map((header,index)=>({wch:Math.min(40,Math.max(header.length+2,...values.map(row=>(row[index]?.length||0)+2)))}));
-    const workbook=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook,worksheet,title.slice(0,31));
-    XLSX.writeFile(workbook,`${fileName}.xlsx`);
+  if(format==='csv') {
+    downloadCsv(headers,values,fileName);
     return;
   }
 

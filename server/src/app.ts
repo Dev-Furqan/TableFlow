@@ -11,12 +11,11 @@ export const isAllowedOrigin=(origin?:string)=>{
 	}
 
 	if(isClientUrlDefault&&env.NODE_ENV==='production'){
-		// CLIENT_URL was not configured for production.
-		// Allow any HTTPS origin as a fallback so deployed clients can connect.
-		// Set CLIENT_URL explicitly to restrict origins.
+		// CLIENT_URL was not configured for production. Reject browser origins
+		// until it is configured so an accidental deployment stays private.
 		// eslint-disable-next-line no-console
-		console.warn('CLIENT_URL is using the default localhost value in production; allowing any HTTPS origin. Set CLIENT_URL on the server deployment to restrict origins.');
-		return /^https:\/\/[^/]+$/.test(origin);
+		console.warn('CLIENT_URL is using the default localhost value in production; rejecting browser origins. Set CLIENT_URL on the server deployment.');
+		return false;
 	}
 
 	return isOriginAllowed(origin,allowedOrigins,env.NODE_ENV);
@@ -35,7 +34,7 @@ export const corsOptions={
 		// turning preflight checks into internal server errors.
 		// Support an escape-hatch for quick debugging: set DEBUG_ALLOW_ALL_CORS=1
 		// in the server environment to allow all origins temporarily.
-		if(process.env.DEBUG_ALLOW_ALL_CORS==='1'){
+		if(process.env.DEBUG_ALLOW_ALL_CORS==='1'&&env.NODE_ENV!=='production'){
 			// eslint-disable-next-line no-console
 			console.warn('DEBUG_ALLOW_ALL_CORS=1 is enabled — allowing all origins');
 			return callback(null, true);

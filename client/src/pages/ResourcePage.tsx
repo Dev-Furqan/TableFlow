@@ -29,7 +29,7 @@ export default function ResourcePage({endpoint,title}:{endpoint:string;title:str
   if(endpoint==='investments')return <Investment/>;
   const cfg=configs[endpoint]||{subtitle:'Manage your restaurant records.',cols:['name'],fields:[['name','Name']]};
   const [search,setSearch]=useState('');
-  const [exportFormat,setExportFormat]=useState<ExportFormat>('xlsx');
+  const [exportFormat,setExportFormat]=useState<ExportFormat>('csv');
   const [edit,setEdit]=useState<any>(null);
   const qc=useQueryClient(),toast=useToast();
   const user=useAuth(s=>s.user);
@@ -54,7 +54,7 @@ export default function ResourcePage({endpoint,title}:{endpoint:string;title:str
       </div>
       <div className="flex gap-2">
         <select value={exportFormat} onChange={event=>setExportFormat(event.target.value as ExportFormat)} aria-label="Export format" className="dark-input">
-          <option value="xlsx">Excel (.xlsx)</option><option value="pdf">PDF (.pdf)</option>
+          <option value="csv">Excel-compatible CSV (.csv)</option><option value="pdf">PDF (.pdf)</option>
         </select>
         <Button variant="secondary" onClick={exportRows} disabled={!rows.length}><Download size={16}/>Export</Button>
         {cfg.fields.length>0&&<Button onClick={()=>setEdit({})}><Plus size={17}/>Add {title.replace(/s$/,'').toLowerCase()}</Button>}

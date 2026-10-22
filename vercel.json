@@ -1,6 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["iad1"],
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build -w @tableflow/server",
   "functions": {
     "api/index.ts": {
       "maxDuration": 30
@@ -15,9 +17,5 @@
       "source": "/health",
       "destination": "/api"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production",
-    "CLIENT_URL": "https://table-flow-client-1jg9.vercel.app"
-  }
+  ]
 }

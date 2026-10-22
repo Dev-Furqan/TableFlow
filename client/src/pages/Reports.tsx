@@ -21,7 +21,7 @@ function printDailySales(sales:any,restaurant:any) {
 export default function Reports() {
   const [from,setFrom]=useState(new Date(Date.now()-30*864e5).toISOString().slice(0,10)),[to,setTo]=useState(new Date().toISOString().slice(0,10));
   const [salesDate,setSalesDate]=useState(new Date().toISOString().slice(0,10));
-  const [exportFormat,setExportFormat]=useState<ExportFormat>('xlsx');
+  const [exportFormat,setExportFormat]=useState<ExportFormat>('csv');
   const {data={}}=useQuery({queryKey:['reports',from,to],queryFn:()=>api.get('/reports/accounting',{params:{from,to}}).then(r=>r.data.data)});
   const {data:dailySales,isLoading:loadingDailySales}=useQuery({queryKey:['daily-sales',salesDate],queryFn:()=>api.get('/reports/daily-sales',{params:{date:salesDate}}).then(r=>r.data.data)});
   const {data:settings=[]}=useQuery({queryKey:['settings'],queryFn:()=>api.get('/settings?limit=100').then(r=>r.data.data).catch(()=>[])});
@@ -31,7 +31,7 @@ export default function Reports() {
   return <div className="space-y-7">
     <div className="flex flex-col justify-between gap-4 border-b border-zinc-800 pb-7 sm:flex-row sm:items-end">
       <div><h2 className="text-3xl font-extrabold text-white">Sales Reports</h2><p className="mt-2 text-zinc-400">Turn service activity into useful decisions.</p></div>
-      <div className="flex gap-2"><select className="dark-input min-w-44"><option>Today</option><option>This week</option><option>This month</option></select><select value={exportFormat} onChange={event=>setExportFormat(event.target.value as ExportFormat)} aria-label="Export format" className="dark-input"><option value="xlsx">Excel</option><option value="pdf">PDF</option></select><Button variant="secondary" onClick={()=>exportReport()}><Download size={17}/>Export</Button></div>
+      <div className="flex gap-2"><select className="dark-input min-w-44"><option>Today</option><option>This week</option><option>This month</option></select><select value={exportFormat} onChange={event=>setExportFormat(event.target.value as ExportFormat)} aria-label="Export format" className="dark-input"><option value="csv">CSV</option><option value="pdf">PDF</option></select><Button variant="secondary" onClick={()=>exportReport()}><Download size={17}/>Export</Button></div>
     </div>
 
     <Card className="flex flex-wrap items-end gap-3 p-4">
