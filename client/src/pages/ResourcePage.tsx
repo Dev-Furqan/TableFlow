@@ -13,13 +13,13 @@ const configs:any={
   recipes:{subtitle:'Ingredient usage, food cost and margin by dish.',cols:['menuItem','ingredients','costPerServing'],fields:[]},
   customers:{subtitle:'Guest profiles, loyalty and order history.',cols:['name','phone','email','loyaltyPoints','totalSpent'],fields:[['name','Name'],['phone','Phone'],['email','Email'],['address','Address']]},
   suppliers:{subtitle:'Vendor contacts, purchases and balances.',cols:['name','contact','email','outstandingBalance'],fields:[['name','Name'],['contact','Contact'],['email','Email'],['address','Address']]},
-  purchases:{subtitle:'Purchase orders, receiving and payments.',cols:['number','supplier','total','paymentStatus','received'],fields:[['number','PO number'],['total','Total','number'],['paymentStatus','Payment status']]},
+  purchases:{subtitle:'Purchase orders, suppliers and payment details.',cols:['number','name','supplier','total','paidAmount','paymentMethod','paymentStatus','received'],fields:[['number','PO number'],['name','Purchase name'],['supplier','Supplier'],['total','Total amount','number'],['paidAmount','Paid amount','number'],['paymentMethod','Payment type'],['paymentStatus','Payment status (calculated)'],['date','Purchase date','date']]},
   expenses:{subtitle:'Record custom operating expenses and their costs.',cols:['name','date','amount','paymentMethod','note'],fields:[['name','Expense name'],['date','Date','date'],['amount','Cost','number'],['paymentMethod','Payment method'],['note','Note']]},
   investments:{subtitle:'Record startup and later investment costs. ROI is calculated from actual sales, purchases and expenses.',cols:['name','date','amount','note'],fields:[['name','Investment item'],['date','Date','date'],['amount','Amount','number'],['note','Note']]},
   staff:{subtitle:'Team members, roles, salary and performance.',cols:['name','email','phone','role','salary','status'],fields:[['name','Name'],['email','Email'],['phone','Phone'],['role','Role'],['salary','Monthly salary','number'],['status','Status'],['password','Password','password']]}
 };
 
-const moneyKeys=['price','cost','amount','total','costPrice','totalSpent','outstandingBalance','salary'];
+const moneyKeys=['price','cost','amount','total','paidAmount','costPrice','totalSpent','outstandingBalance','salary'];
 const roleOptions=['owner','manager','cashier','waiter','kitchen','rider','accountant','viewer'];
 const statusOptions=['active','inactive'];
 const display=(v:any,key:string)=>{if(v==null)return '-';if(Array.isArray(v))return `${v.length} items`;if(typeof v==='object')return v.name||v.label||'-';if(key.toLowerCase().includes('date'))return new Date(v).toLocaleDateString();if(moneyKeys.includes(key))return `Rs ${Number(v).toLocaleString()}`;return String(v);};
@@ -35,7 +35,7 @@ export default function ResourcePage({endpoint,title}:{endpoint:string;title:str
   const user=useAuth(s=>s.user);
   const {data,isLoading}=useQuery({queryKey:[endpoint,search],queryFn:()=>api.get(`/${endpoint}`,{params:{search,limit:100}}).then(r=>r.data)});
   const rows=data?.data||[];
-  const save=async(e:any)=>{e.preventDefault();const body:any=Object.fromEntries(new FormData(e.currentTarget));cfg.fields.forEach((f:any)=>{if(f[2]==='number')body[f[0]]=Number(body[f[0]]);});if(body.password==='')delete body.password;try{if(edit?._id)await api.patch(`/${endpoint}/${edit._id}`,body);else await api.post(`/${endpoint}`,body);toast.push(`${title.replace(/s$/,'')} saved`);setEdit(null);qc.invalidateQueries({queryKey:[endpoint]});}catch(e){toast.push(messageOf(e),'error');}};
+  const save=async(e:any)=>{e.preventDefault();const body:any=Object.fromEntries(new FormData(e.currentTarget));cfg.fields.forEach((f:any)=>{if(f[2]==='number')body[f[0]]=Number(body[f[0]]);});if(endpoint==='purchases'){const total=Number(body.total)||0,paidAmount=Number(body.paidAmount)||0;if(paidAmount>total){toast.push('Paid amount cannot be greater than the total amount','error');return;}if(paidAmount===0)body.paymentStatus='pending';else if(paidAmount<total)body.paymentStatus='partial';else body.paymentStatus='paid';}if(body.password==='')delete body.password;try{if(edit?._id)await api.patch(`/${endpoint}/${edit._id}`,body);else await api.post(`/${endpoint}`,body);toast.push(`${title.replace(/s$/,'')} saved`);setEdit(null);qc.invalidateQueries({queryKey:[endpoint]});}catch(e){toast.push(messageOf(e),'error');}};
   const remove=async(row:any)=>{const label=endpoint==='expenses'?'expense':'staff member';if(!window.confirm(`Delete ${label} "${row.name}"? This cannot be undone.`))return;try{await api.delete(`/${endpoint}/${row._id}`);toast.push(`${row.name} deleted`);qc.invalidateQueries({queryKey:[endpoint]});}catch(e){toast.push(messageOf(e),'error');}};
 
   const lowStock=endpoint==='inventory'?rows.filter((x:any)=>x.currentStock<=x.minimumStock).length:0;
@@ -75,7 +75,7 @@ export default function ResourcePage({endpoint,title}:{endpoint:string;title:str
     </Card>
 
     <Modal open={!!edit} onClose={()=>setEdit(null)} title={`${edit?._id?'Edit':'Add'} ${title.replace(/s$/,'')}`}>
-      <form onSubmit={save} className="space-y-4 p-5">{cfg.fields.map(([name,label,type='text']:any)=><ResourceField key={name} name={name} label={label} type={type} value={edit?.[name]} required={['name','amount'].includes(name)}/>)}<Button className="w-full">Save</Button></form>
+      <form onSubmit={save} className="space-y-4 p-5">{cfg.fields.map(([name,label,type='text']:any)=><ResourceField key={name} name={name} label={label} type={type} value={edit?.[name]} required={['name','amount','total'].includes(name)}/>)}<Button className="w-full">Save</Button></form>
     </Modal>
   </div>;
 }
@@ -86,6 +86,7 @@ function Metric({label,value,alert}:{label:string;value:any;alert?:boolean}) {
 
 function ResourceField({name,label,type,value,required}:any) {
   const {data:categories=[]}=useQuery({queryKey:['categories'],queryFn:()=>api.get('/categories').then(r=>r.data.data||[])});
+  const {data:suppliers=[]}=useQuery({queryKey:['suppliers'],queryFn:()=>api.get('/suppliers',{params:{limit:100}}).then(r=>r.data.data||[]),enabled:name==='supplier'});
   
   if(name==='role'||name==='status') {
     const options=name==='role'?roleOptions:statusOptions;
@@ -95,8 +96,17 @@ function ResourceField({name,label,type,value,required}:any) {
   if(name==='category') {
     return <label className="block text-sm font-medium text-zinc-300">{label}<select name={name} defaultValue={value?._id||value||''} required={required} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-zinc-100 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-white/10"><option value="">Select a category</option>{categories.map((cat:any)=><option key={cat._id} value={cat._id}>{cat.name}</option>)}</select></label>;
   }
+
+  if(name==='supplier') {
+    return <label className="block text-sm font-medium text-zinc-300">{label}<select name={name} defaultValue={value?._id||value||''} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-zinc-100 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-white/10"><option value="">No supplier selected</option>{suppliers.map((supplier:any)=><option key={supplier._id} value={supplier._id}>{supplier.name}</option>)}</select></label>;
+  }
+
+  if(name==='paymentMethod'||name==='paymentStatus') {
+    const options=name==='paymentMethod'?['cash','card','bank-transfer','mobile-wallet','credit','other']:['pending','partial','paid'];
+    return <label className="block text-sm font-medium text-zinc-300">{label}<select name={name} defaultValue={value||options[0]} required={required} disabled={name==='paymentStatus'} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-zinc-100 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-white/10 disabled:cursor-not-allowed disabled:opacity-70">{options.map(option=><option key={option} value={option}>{option.replaceAll('-',' ')}</option>)}</select></label>;
+  }
   
-  return <Field name={name} label={label} type={type} defaultValue={value} required={required}/>;
+  return <Field name={name} label={label} type={type} defaultValue={type==='date'&&value?.slice?value.slice(0,10):value} required={required}/>;
 }
 
 function Accounting() {
