@@ -35,7 +35,7 @@ export default function Orders() {
   const {data:staff=[]}=useQuery({queryKey:['staff-riders'],queryFn:()=>api.get('/staff?limit=100').then(r=>r.data.data)});
   const {data:settings=[]}=useQuery({queryKey:['settings'],queryFn:()=>api.get('/settings?limit=100').then(r=>r.data.data).catch(()=>[])});
   const {data:categories=[]}=useQuery({queryKey:['categories'],queryFn:()=>api.get('/categories?limit=100').then(r=>r.data.data)});
-  const {data:menuItems=[]}=useQuery({queryKey:['menu-items'],queryFn:()=>api.get('/menu-items?limit=100').then(r=>r.data.data)});
+  const {data:menuItems=[]}=useQuery({queryKey:['menu-items'],queryFn:()=>api.get('/menu-items?limit=5000').then(r=>r.data.data)});
   const {data:dailySales,isLoading:loadingDailySales}=useQuery({queryKey:['daily-sales',selectedDate],queryFn:()=>api.get('/reports/daily-sales',{params:{date:selectedDate}}).then(r=>r.data.data),enabled:salesSlipOpen});
   useSocket({'order:created':()=>qc.invalidateQueries({queryKey:['orders']}),'order:updated':()=>qc.invalidateQueries({queryKey:['orders']}),'order:completed':()=>qc.invalidateQueries({queryKey:['orders']}),'order:deleted':()=>qc.invalidateQueries({queryKey:['orders']})});
   const rows=data?.data||[];

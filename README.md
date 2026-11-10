@@ -22,7 +22,7 @@ Then install, configure, seed, and run:
 npm install
 Copy-Item server/.env.example server/.env
 Copy-Item client/.env.example client/.env
-npm run seed
+$env:ALLOW_DESTRUCTIVE_SEED='true'; npm run seed
 npm run dev
 ```
 
@@ -58,7 +58,7 @@ All demo users use password `Demo@123`.
 ```powershell
 npm run dev       # API and client with hot reload
 npm run build     # production build for both workspaces
-npm run seed      # reset and repopulate demo data
+$env:ALLOW_DESTRUCTIVE_SEED='true'; npm run seed  # intentionally reset and repopulate demo data
 npm run start     # start the compiled API after build
 npm run integration:backfill-ids -w @tableflow/server  # assign stable IDs before first menu sync
 ```

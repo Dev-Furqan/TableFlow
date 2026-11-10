@@ -14,7 +14,7 @@ export default function RecipePage() {
   const [edit,setEdit]=useState<any>(null);
   const [stockOpen,setStockOpen]=useState(false);
   const qc=useQueryClient(),toast=useToast();
-  const {data:items=[]}=useQuery<MenuItem[]>({queryKey:['menu-items'],queryFn:()=>api.get('/menu-items?limit=100').then(r=>r.data.data)});
+  const {data:items=[]}=useQuery<MenuItem[]>({queryKey:['menu-items'],queryFn:()=>api.get('/menu-items?limit=5000').then(r=>r.data.data)});
   const {data:inventory=[]}=useQuery<InventoryItem[]>({queryKey:['inventory'],queryFn:()=>api.get('/inventory?limit=100').then(r=>r.data.data)});
   const {data:recipes=[]}=useQuery<Recipe[]>({queryKey:['recipes'],queryFn:()=>api.get('/recipes?limit=100').then(r=>r.data.data)});
   const recipeByItem=useMemo(()=>new Map(recipes.map((r:any)=>[idOf(r.menuItem),r])),[recipes]);

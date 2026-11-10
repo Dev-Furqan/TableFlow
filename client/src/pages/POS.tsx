@@ -41,7 +41,7 @@ export default function POS() {
   const [promo,setPromo]=useState('');
   const [manualDiscount,setManualDiscount]=useState('');
 
-  const {data:products=[]}=useQuery({queryKey:['menu'],queryFn:()=>api.get('/menu-items?limit=100').then(r=>r.data.data)});
+  const {data:products=[]}=useQuery({queryKey:['menu'],queryFn:()=>api.get('/menu-items?limit=5000').then(r=>r.data.data)});
   const {data:deals=[]}=useQuery({queryKey:['deals'],queryFn:()=>api.get('/deals?limit=100').then(r=>r.data.data)});
   const {data:categories=[]}=useQuery({queryKey:['categories'],queryFn:()=>api.get('/categories?limit=100').then(r=>r.data.data)});
   const {data:tables=[]}=useQuery({queryKey:['tables'],queryFn:()=>api.get('/tables?limit=100').then(r=>r.data.data)});

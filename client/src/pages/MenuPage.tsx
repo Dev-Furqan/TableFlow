@@ -16,7 +16,7 @@ export default function MenuPage() {
   const [search,setSearch]=useState('');
   const [category,setCategory]=useState('all');
   const qc=useQueryClient(),toast=useToast();
-  const {data:items=[]}=useQuery<MenuItem[]>({queryKey:['menu-items'],queryFn:()=>api.get('/menu-items?limit=100').then(r=>r.data.data)});
+  const {data:items=[]}=useQuery<MenuItem[]>({queryKey:['menu-items'],queryFn:()=>api.get('/menu-items?limit=5000').then(r=>r.data.data)});
   const {data:categories=[]}=useQuery<Category[]>({queryKey:['categories'],queryFn:()=>api.get('/categories?limit=100&sort=displayOrder').then(r=>r.data.data)});
   const {data:addons=[]}=useQuery<AddOn[]>({queryKey:['add-ons'],queryFn:()=>api.get('/add-ons?limit=100').then(r=>r.data.data)});
   const {data:deals=[]}=useQuery<Deal[]>({queryKey:['deals'],queryFn:()=>api.get('/deals?limit=100').then(r=>r.data.data)});
